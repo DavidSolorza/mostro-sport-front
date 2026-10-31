@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ENV_CONFIG } from '../config/env';
 import { httpClient } from '../http/httpClient';
-import { decodeJwtPayload, isJwtExpired } from './jwtDecoder';
+import { AuthProviderType, AuthUserSession, authStorage } from './authStorage';
 
-export type AuthProviderType = 'LOCAL' | 'GOOGLE' | 'GITHUB' | 'MICROSOFT';
-
-export interface AuthUserSession {
-  userId: number;
-  email: string;
-  name?: string;
-  authProvider: AuthProviderType;
-  expiresAt: string;
-  twoFactorEnabled: boolean;
-}
+export type { AuthProviderType, AuthUserSession };
 
 interface AuthContextValue {
   session: AuthUserSession | null;
@@ -30,44 +20,16 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<AuthUserSession | null>(null);
-  const [pendingTwoFactorEmail, setPendingTwoFactorEmail] = useState<string | null>(
-    localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_EMAIL)
+  const [session, setSession] = useState<AuthUserSession | null>(() => authStorage.getStoredSession());
+  const [pendingTwoFactorEmail, setPendingTwoFactorEmail] = useState<string | null>(() =>
+    authStorage.getPending2FAEmail()
   );
   const [forbiddenBanner, setForbiddenBanner] = useState<string | null>(null);
 
-  const hydrateFromStorage = (): void => {
-    const token = localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-    const expiresAt = localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.EXPIRES_AT) || '';
-    const provider = (localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.AUTH_PROVIDER) as AuthProviderType) || 'LOCAL';
-    const twoFactorMap = JSON.parse(localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.TWO_FACTOR_ENABLED) || '{}');
-
-    if (!token || isJwtExpired(token)) {
-      localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-      setSession(null);
-      return;
-    }
-
-    const claims = decodeJwtPayload(token);
-    if (!claims) {
-      setSession(null);
-      return;
-    }
-
-    setSession({
-      userId: Number(claims.sub),
-      email: claims.email,
-      authProvider: provider,
-      expiresAt,
-      twoFactorEnabled: Boolean(twoFactorMap[claims.email]),
-    });
-  };
-
   useEffect(() => {
-    hydrateFromStorage();
     httpClient.setInterceptors(
       () => {
-        localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+        authStorage.clearSession();
         setSession(null);
       },
       (msg) => setForbiddenBanner(msg)
@@ -75,34 +37,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const establishSession = (token: string, expiresAt: string, provider: AuthProviderType): void => {
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, token);
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.EXPIRES_AT, expiresAt);
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.AUTH_PROVIDER, provider);
-    localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_EMAIL);
-    localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_TOKEN);
+    authStorage.saveSession(token, expiresAt, provider);
     setPendingTwoFactorEmail(null);
-    hydrateFromStorage();
+    setSession(authStorage.getStoredSession());
   };
 
   const startTwoFactorChallenge = (email: string, tempToken: string, expiresAt: string): void => {
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_EMAIL, email);
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_TOKEN, JSON.stringify({ tempToken, expiresAt }));
+    authStorage.setPending2FA(email, tempToken, expiresAt);
     setPendingTwoFactorEmail(email);
   };
 
   const completeTwoFactorChallenge = async (code: string): Promise<void> => {
-    const raw = localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_TOKEN);
-    const email = localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_EMAIL);
+    const raw = authStorage.getPending2FAToken();
+    const email = authStorage.getPending2FAEmail();
     if (!raw || !email) {
       throw new Error('No existe un proceso de segundo factor activo.');
     }
     try {
-      const res = await httpClient.post<{ accessToken: string; expiresAt: string }>('/auth/verify-2fa', { email, code });
+      const res = await httpClient.post<{ accessToken: string; expiresAt: string }>('/auth/verify-2fa', {
+        email,
+        code,
+      });
       establishSession(res.accessToken, res.expiresAt, 'LOCAL');
     } catch (err: unknown) {
-      const parsed = JSON.parse(raw) as { tempToken: string; expiresAt: string };
-      if (code.length === 6 && /^\d{6}$/.test(code) && parsed.tempToken) {
-        establishSession(parsed.tempToken, parsed.expiresAt, 'LOCAL');
+      if (code.length === 6 && /^\d{6}$/.test(code) && raw.tempToken) {
+        establishSession(raw.tempToken, raw.expiresAt, 'LOCAL');
         return;
       }
       throw err;
@@ -110,16 +69,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const cancelTwoFactorChallenge = (): void => {
-    localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_EMAIL);
-    localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.PENDING_2FA_TOKEN);
+    authStorage.clearPending2FA();
     setPendingTwoFactorEmail(null);
   };
 
   const toggleTwoFactorPreference = (enabled: boolean): void => {
     if (!session || session.authProvider !== 'LOCAL') return;
-    const map = JSON.parse(localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.TWO_FACTOR_ENABLED) || '{}');
-    map[session.email] = enabled;
-    localStorage.setItem(ENV_CONFIG.STORAGE_KEYS.TWO_FACTOR_ENABLED, JSON.stringify(map));
+    authStorage.setTwoFactorPreference(session.email, enabled);
     setSession({ ...session, twoFactorEnabled: enabled });
   };
 
@@ -127,10 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await httpClient.post('/auth/logout');
     } catch {
-      // Continúa el cierre local aunque el endpoint no exista aún en back
+      // Cierre local aunque el backend no responda
     } finally {
-      localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-      localStorage.removeItem(ENV_CONFIG.STORAGE_KEYS.EXPIRES_AT);
+      authStorage.clearSession();
       setSession(null);
     }
   };
@@ -160,4 +115,3 @@ export const useAuth = (): AuthContextValue => {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
   return ctx;
 };
-

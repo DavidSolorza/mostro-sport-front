@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, LogIn, AlertCircle, Globe, Github } from 'lucide-react';
+import { Shield, LogIn, AlertCircle } from 'lucide-react';
 import { authApiService } from '../application/authService';
 import { AuthProviderType, useAuth } from '../../../core/auth/AuthContext';
 import { ENV_CONFIG } from '../../../core/config/env';
+import { OAuthProviderButtons } from './OAuthProviderButtons';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -34,7 +35,7 @@ export const LoginPage: React.FC = () => {
       establishSession(response.accessToken, response.expiresAt, 'LOCAL');
       navigate('/admin/users');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Credenciales inválidas o cuenta deshabilitada.');
+      setError(err instanceof Error ? err.message : 'Credenciales invalidas o cuenta deshabilitada.');
     } finally {
       setLoading(false);
     }
@@ -48,31 +49,27 @@ export const LoginPage: React.FC = () => {
       establishSession(res.accessToken, res.expiresAt, provider);
       navigate('/admin/users');
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? `${err.message} (Verifica que el endpoint /api/auth/oauth/${provider.toLowerCase()} esté habilitado en el servidor y que el correo no pertenezca a una cuenta manual).`
-          : `Error al autenticar con ${provider}.`
-      );
+      setError(err instanceof Error ? err.message : `Error de autenticacion con ${provider}.`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-200">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3 shadow-md">
-            <Shield className="h-7 w-7" />
+          <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3 shadow-sm">
+            <Shield className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Iniciar Sesión (HU-SE-08)</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Ingresa con tus credenciales o proveedor externo de identidad
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Iniciar Sesion</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Ingrese sus credenciales de acceso a la plataforma corporativa
           </p>
         </div>
 
         {error && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-lg bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-700">
+          <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -80,16 +77,14 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleCredentialsLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Correo Electrónico
-            </label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electronico</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@mostrosport.com"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              placeholder="usuario@mostrosport.com"
+              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
             />
           </div>
 
@@ -97,7 +92,7 @@ export const LoginPage: React.FC = () => {
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-semibold text-slate-700">Contraseña</label>
               <Link to="/forgot-password" className="text-xs font-medium text-indigo-600 hover:underline">
-                ¿Olvidaste tu contraseña?
+                ¿Olvido su contraseña?
               </Link>
             </div>
             <input
@@ -106,64 +101,35 @@ export const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
           >
             <LogIn className="h-4 w-4" />
-            <span>{loading ? 'Validando...' : 'Ingresar con Credenciales'}</span>
+            <span>{loading ? 'Validando credenciales...' : 'Ingresar al Sistema'}</span>
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs text-slate-400 font-medium">O continuar con OAuth2</span>
+          <span className="text-[11px] text-slate-400 font-medium">O continuar con</span>
           <div className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => handleOAuthLogin('GOOGLE')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Globe className="h-4 w-4 text-rose-500" />
-            <span>Google</span>
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => handleOAuthLogin('GITHUB')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Github className="h-4 w-4 text-slate-900" />
-            <span>GitHub</span>
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => handleOAuthLogin('MICROSOFT')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Globe className="h-4 w-4 text-sky-600" />
-            <span>Microsoft</span>
-          </button>
-        </div>
+        <OAuthProviderButtons loading={loading} onSelectProvider={handleOAuthLogin} />
 
         <p className="mt-6 text-center text-xs text-slate-500">
-          ¿Eres nuevo usuario con credenciales?{' '}
+          ¿No dispone de una cuenta?{' '}
           <Link to="/register" className="font-semibold text-indigo-600 hover:underline">
-            Crear cuenta (HU-SE-07)
+            Solicitar registro
           </Link>
         </p>
       </div>
     </div>
   );
 };
-

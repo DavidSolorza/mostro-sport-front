@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { UserPlus, AlertCircle } from 'lucide-react';
 import { authApiService } from '../application/authService';
 import { PASSWORD_RULES } from '../domain/authModels';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 
 export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -14,52 +15,43 @@ export const RegisterPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  const rules = [
-    { label: 'Entre 8 y 72 caracteres', ok: PASSWORD_RULES.minLength(password) },
-    { label: 'Al menos una letra minúscula (a-z)', ok: PASSWORD_RULES.hasLower(password) },
-    { label: 'Al menos una letra mayúscula (A-Z)', ok: PASSWORD_RULES.hasUpper(password) },
-    { label: 'Al menos un número (0-9)', ok: PASSWORD_RULES.hasDigit(password) },
-    { label: 'Un carácter especial (@$!%*?&)', ok: PASSWORD_RULES.hasSpecial(password) },
-    { label: 'Sin espacios en blanco', ok: PASSWORD_RULES.noSpaces(password) && password.length > 0 },
-  ];
+  const isPasswordValid =
+    PASSWORD_RULES.minLength(password) &&
+    PASSWORD_RULES.hasUpper(password) &&
+    PASSWORD_RULES.hasDigit(password) &&
+    PASSWORD_RULES.hasSpecial(password);
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!PASSWORD_RULES.isValid(password)) {
-      setError('La contraseña no cumple todas las condiciones de seguridad del sistema.');
+    if (!isPasswordValid) {
+      setError('La contraseña debe cumplir con todos los requisitos de seguridad.');
       return;
     }
 
     setLoading(true);
     try {
       await authApiService.register({ name: name.trim(), email: email.trim(), password });
-      setSuccess('Cuenta creada exitosamente. Redirigiendo al inicio de sesión...');
+      setSuccess('Cuenta creada exitosamente. Redirigiendo a inicio de sesion...');
       setTimeout(() => navigate('/login'), 1500);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Error al registrar la cuenta. Verifica si el correo ya existe.'
-      );
+      setError(err instanceof Error ? err.message : 'Error al registrar la cuenta.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-200">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3">
+          <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3 shadow-sm">
             <UserPlus className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Registro Manual (HU-SE-07)</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Exclusivo para autenticación tradicional (usuarios OAuth no requieren registro manual)
-          </p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Crear Cuenta Corporativa</h1>
+          <p className="text-xs text-slate-500 mt-1">Complete sus datos para solicitar acceso a la plataforma</p>
         </div>
 
         {error && (
@@ -75,32 +67,28 @@ export const RegisterPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo</label>
             <input
               type="text"
               required
-              minLength={2}
-              maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Juan Pérez"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              placeholder="Juan Perez"
+              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Correo Electrónico Único
-            </label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electronico</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="usuario@correo.com"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              placeholder="juan.perez@mostrosport.com"
+              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
             />
           </div>
 
@@ -112,40 +100,28 @@ export const RegisterPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
             />
-            <ul className="mt-2.5 space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              {rules.map((r) => (
-                <li
-                  key={r.label}
-                  className={`flex items-center gap-2 text-xs ${
-                    r.ok ? 'text-emerald-600 font-medium' : 'text-slate-500'
-                  }`}
-                >
-                  {r.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
-                  <span>{r.label}</span>
-                </li>
-              ))}
-            </ul>
           </div>
+
+          <PasswordStrengthIndicator passwordValue={password} />
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            disabled={loading || !isPasswordValid}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
           >
-            {loading ? 'Registrando...' : 'Crear Cuenta'}
+            {loading ? 'Creando cuenta...' : 'Confirmar Registro'}
           </button>
         </form>
 
         <p className="mt-5 text-center text-xs text-slate-500">
-          ¿Ya tienes una cuenta?{' '}
+          ¿Ya dispone de una cuenta?{' '}
           <Link to="/login" className="font-semibold text-indigo-600 hover:underline">
-            Iniciar sesión
+            Iniciar sesion
           </Link>
         </p>
       </div>
     </div>
   );
 };
-
