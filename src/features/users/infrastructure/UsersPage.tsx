@@ -1,19 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  KeyRound,
   LoaderCircle,
   Mail,
   Pencil,
   Plus,
   RotateCw,
   Search,
+  Shield,
   Trash2,
   UserRound,
+  UserRoundPlus,
   Users,
   X,
 } from 'lucide-react';
 import { HttpError } from '../../../core/errors/HttpError';
 import { ConfirmDialog } from '../../../core/layout/ConfirmDialog';
+import { roleApiService } from '../../roles/application/roleService';
+import { RoleResponseDTO, UserRoleResponseDTO } from '../../roles/domain/roleModels';
 import { userApiService } from '../application/userService';
 import {
   CreateUserDTO,
@@ -34,6 +39,11 @@ interface UserFormDialogProps {
   user: UserResponseDTO | null;
   onClose: () => void;
   onSave: (values: UserFormValues) => Promise<void>;
+}
+
+interface UserRolesDialogProps {
+  user: UserResponseDTO;
+  onClose: () => void;
 }
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])\S{8,72}$/;
@@ -233,6 +243,246 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ user, onClose, onSave }
   );
 };
 
+const UserRolesDialog: React.FC<UserRolesDialogProps> = ({ user, onClose }) => {
+  const [roles, setRoles] = useState<RoleResponseDTO[]>([]);
+  const [assignments, setAssignments] = useState<UserRoleResponseDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyRoleId, setBusyRoleId] = useState<number | null>(null);
+  const [roleToRemove, setRoleToRemove] = useState<RoleResponseDTO | null>(null);
+  const [query, setQuery] = useState('');
+
+  const loadData = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [allRoles, userAssignments] = await Promise.all([
+        roleApiService.list(),
+        roleApiService.listUserAssignments(user.id),
+      ]);
+      setRoles(allRoles);
+      setAssignments(userAssignments);
+    } catch (error: unknown) {
+      setLoadError(getErrorMessage(error, 'No fue posible cargar los roles del usuario.'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user.id]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const assignedRoleIds = useMemo(
+    () => new Set(assignments.map((assignment) => assignment.role.id)),
+    [assignments]
+  );
+
+  const filteredRoles = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return roles;
+    return roles.filter((role) =>
+      `${role.name} ${role.description}`.toLocaleLowerCase().includes(normalizedQuery)
+    );
+  }, [query, roles]);
+
+  const assignRole = async (role: RoleResponseDTO): Promise<void> => {
+    setBusyRoleId(role.id);
+    setActionError(null);
+    try {
+      const assignment = await roleApiService.assignUser(user.id, role.id);
+      setAssignments((current) => [...current, assignment]);
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, 'No fue posible asignar el rol.'));
+    } finally {
+      setBusyRoleId(null);
+    }
+  };
+
+  const removeRole = async (): Promise<void> => {
+    if (!roleToRemove) return;
+    setBusyRoleId(roleToRemove.id);
+    setActionError(null);
+    try {
+      await roleApiService.removeUserRole(user.id, roleToRemove.id);
+      setAssignments((current) =>
+        current.filter((assignment) => assignment.role.id !== roleToRemove.id)
+      );
+      setRoleToRemove(null);
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, 'No fue posible quitar el rol del usuario.'));
+      setRoleToRemove(null);
+    } finally {
+      setBusyRoleId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-roles-title"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+              <KeyRound className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 id="user-roles-title" className="text-base font-semibold text-slate-900">
+                Roles de {user.name}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Asigna roles o quita una asignacion de este usuario.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-100 bg-slate-50/50 p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar rol por nombre o descripcion..."
+              aria-label="Buscar roles para el usuario"
+              className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+        </div>
+
+        {actionError && (
+          <div role="alert" className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+        )}
+
+        <div className="min-h-48 flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex h-48 items-center justify-center gap-2 text-xs text-slate-500">
+              <LoaderCircle className="h-4 w-4 animate-spin text-indigo-600" />
+              Cargando roles...
+            </div>
+          ) : loadError ? (
+            <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-6 text-center">
+              <p role="alert" className="text-xs text-rose-700">{loadError}</p>
+              <button
+                type="button"
+                onClick={() => void loadData()}
+                className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900"
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+                Reintentar
+              </button>
+            </div>
+          ) : filteredRoles.length === 0 ? (
+            <div className="flex h-48 flex-col items-center justify-center px-6 text-center">
+              <p className="text-sm font-semibold text-slate-800">
+                {query ? 'Sin resultados' : 'No hay roles disponibles'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {query ? 'Prueba con otro nombre o descripcion.' : 'Crea un rol antes de asignarlo.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {filteredRoles.map((role) => {
+                const isAssigned = assignedRoleIds.has(role.id);
+                const isBusy = busyRoleId === role.id;
+                return (
+                  <li key={role.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-700">
+                        <Shield className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-slate-800">{role.name}</p>
+                        <p className="truncate text-[11px] text-slate-500">{role.description}</p>
+                      </div>
+                    </div>
+                    {isAssigned ? (
+                      <button
+                        type="button"
+                        onClick={() => setRoleToRemove(role)}
+                        disabled={busyRoleId !== null}
+                        aria-label={`Quitar el rol ${role.name} de ${user.name}`}
+                        className="flex shrink-0 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Quitar rol
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void assignRole(role)}
+                        disabled={busyRoleId !== null}
+                        aria-label={`Asignar el rol ${role.name} a ${user.name}`}
+                        className="flex shrink-0 items-center gap-1.5 rounded-md border border-indigo-600 bg-indigo-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <UserRoundPlus className="h-3.5 w-3.5" />
+                        )}
+                        Asignar rol
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {!isLoading && !loadError && (
+          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+            <span className="text-[11px] text-slate-500">
+              {assignedRoleIds.size} {assignedRoleIds.size === 1 ? 'rol asignado' : 'roles asignados'}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+      </section>
+
+      <ConfirmDialog
+        isOpen={roleToRemove !== null}
+        title="Quitar rol del usuario"
+        message={
+          roleToRemove
+            ? `¿Seguro que deseas quitar el rol ${roleToRemove.name} de ${user.name}?`
+            : ''
+        }
+        confirmLabel="Quitar rol"
+        isLoading={busyRoleId !== null}
+        onConfirm={() => void removeRole()}
+        onCancel={() => {
+          if (busyRoleId === null) setRoleToRemove(null);
+        }}
+      />
+    </div>
+  );
+};
+
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<UserResponseDTO[]>([]);
   const [query, setQuery] = useState('');
@@ -241,6 +491,7 @@ export const UsersPage: React.FC = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [formUser, setFormUser] = useState<UserResponseDTO | null | undefined>(undefined);
   const [userToDelete, setUserToDelete] = useState<UserResponseDTO | null>(null);
+  const [userForRoles, setUserForRoles] = useState<UserResponseDTO | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadUsers = useCallback(async (): Promise<void> => {
@@ -367,12 +618,12 @@ export const UsersPage: React.FC = () => {
               Reintentar
             </button>
           )}
-          {deleteError && (
-            <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{deleteError}</span>
-            </div>
-          )}
+        </div>
+      )}
+      {deleteError && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{deleteError}</span>
         </div>
       )}
 
@@ -419,7 +670,7 @@ export const UsersPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left">
+            <table className="w-full min-w-[680px] text-left">
               <thead className="bg-white">
                 <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   <th scope="col" className="px-5 py-3">Usuario</th>
@@ -449,6 +700,15 @@ export const UsersPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setUserForRoles(user)}
+                          aria-label={`Gestionar roles de ${user.name}`}
+                          title="Gestionar roles"
+                          className="rounded-md border border-slate-200 p-2 text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setFormUser(user)}
@@ -481,6 +741,14 @@ export const UsersPage: React.FC = () => {
           user={formUser}
           onClose={() => setFormUser(undefined)}
           onSave={saveUser}
+        />
+      )}
+
+      {userForRoles && (
+        <UserRolesDialog
+          key={userForRoles.id}
+          user={userForRoles}
+          onClose={() => setUserForRoles(null)}
         />
       )}
 

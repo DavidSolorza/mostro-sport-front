@@ -10,6 +10,7 @@ import { RegisterPage } from './features/auth/infrastructure/RegisterPage';
 import { PasswordRecoveryPage } from './features/auth/infrastructure/PasswordRecoveryPage';
 import { VerifyTwoFactorPage } from './features/auth/infrastructure/VerifyTwoFactorPage';
 import { UsersPage } from './features/users/infrastructure/UsersPage';
+import { RolesPage } from './features/roles/infrastructure/RolesPage';
 
 export const App: React.FC = () => (
   <AuthProvider>
@@ -26,7 +27,7 @@ export const App: React.FC = () => (
         <Route element={<ProtectedRouteGuard />}>
           <Route element={<AppShell />}>
             <Route path="/admin/users" element={<UsersPage />} />
-            <Route path="/admin/roles" element={<PendingModulePage title="Roles y Accesos" />} />
+            <Route path="/admin/roles" element={<RolesPage />} />
             <Route path="/admin/permissions" element={<PendingModulePage title="Matriz de Permisos" />} />
             <Route path="/profile" element={<PendingModulePage title="Configuracion de Perfil" />} />
           </Route>
