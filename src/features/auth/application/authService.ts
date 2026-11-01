@@ -23,11 +23,10 @@ export const authApiService = {
 
   async loginWithOAuth(
     provider: Exclude<AuthProviderType, 'LOCAL'>,
-    email?: string
+    credential: string
   ): Promise<AuthResponseDTO> {
     return httpClient.post<AuthResponseDTO>(`/auth/oauth/${provider.toLowerCase()}`, {
-      provider,
-      email,
+      credential
     });
   },
 
