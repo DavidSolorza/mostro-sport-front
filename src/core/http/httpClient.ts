@@ -10,6 +10,8 @@ class NativeHttpClient {
   private onForbidden?: ForbiddenListener;
 
   constructor(baseUrl: string) {
+    console.log(baseUrl);
+    
     this.baseUrl = baseUrl;
   }
 
