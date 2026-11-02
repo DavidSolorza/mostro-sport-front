@@ -8,6 +8,7 @@ export interface AuthResponseDTO {
   tokenType: string;
   expiresAt: string;
   requiresTwoFactor?: boolean;
+  challengeToken?: string;
 }
 
 export interface RegisterRequestDTO {
