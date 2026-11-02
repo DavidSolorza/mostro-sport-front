@@ -5,7 +5,7 @@ El secret lo tiene el backend
 */
 
 export const ENV_CONFIG = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '/api',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8181/api',
   GITHUB_OAUTH_URL: "https://github.com/login/oauth/authorize/",
   GOOGLE_CLIENT_ID:
     import.meta.env.VITE_GOOGLE_CLIENT_ID || '168778492399-kapqdrpcn1qb2ljncb8hto558ofpub06.apps.googleusercontent.com',

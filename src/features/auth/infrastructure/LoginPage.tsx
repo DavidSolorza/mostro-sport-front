@@ -1,68 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, LogIn, AlertCircle } from 'lucide-react';
+import { Shield } from 'lucide-react';
+import { CredentialResponse, GoogleLogin } from '@react-oauth/google';
 import { authApiService } from '../application/authService';
 import { AuthProviderType, useAuth } from '../../../core/auth/AuthContext';
 import { ENV_CONFIG } from '../../../core/config/env';
+import { LoginRequestDTO } from '../domain/authModels';
 import { OAuthProviderButtons } from './OAuthProviderButtons';
-
-
-import { CredentialResponse, GoogleLogin, GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-
-const GOOGLE_OAUTH_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
+import { LoginCredentialsForm } from './LoginCredentialsForm';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const googleLoginRef = useRef<HTMLDivElement>(null);
 
   const { establishSession, startTwoFactorChallenge } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-
-    const codeParam = urlParams.get("code");
-    const issuerParam = urlParams.get("iss");
-
-    console.log("Code: ", codeParam, issuerParam);
-    
-    if (codeParam && issuerParam === "https://github.com/login/oauth")
-    {
-      console.log("meow");
-      handleOAuthLogin("GITHUB", codeParam!)
-      navigate("/");
-    }
-  }, [])
-
-  const handleCredentialsLogin = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const response = await authApiService.login({ email: email.trim(), password });
-      const twoFactorMap = JSON.parse(
-        localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.TWO_FACTOR_ENABLED) || '{}'
-      );
-      const needs2FA = Boolean(response.requiresTwoFactor || twoFactorMap[email.trim()]);
-
-      if (needs2FA) {
-        startTwoFactorChallenge(email.trim(), response.accessToken, response.expiresAt);
-        navigate('/verify-2fa');
-        return;
-      }
-
-      establishSession(response.accessToken, response.expiresAt, 'LOCAL');
-      navigate('/admin/users');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Credenciales invalidas o cuenta deshabilitada.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOAuthLogin = async (provider: Exclude<AuthProviderType, 'LOCAL'>, credential: string): Promise<void> => {
+  const handleOAuthLogin = async (
+    provider: Exclude<AuthProviderType, 'LOCAL'>,
+    credential: string
+  ): Promise<void> => {
     setError(null);
     setLoading(true);
     try {
@@ -76,10 +34,49 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const googleLoginRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const codeParam = urlParams.get('code');
+    const issuerParam = urlParams.get('iss');
+    if (codeParam && issuerParam === 'https://github.com/login/oauth') {
+      handleOAuthLogin('GITHUB', codeParam);
+    }
+  }, []);
+
+  const handleCredentialsLogin = async (dto: LoginRequestDTO): Promise<void> => {
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await authApiService.login(dto);
+      const twoFactorMap = JSON.parse(
+        localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.TWO_FACTOR_ENABLED) || '{}'
+      );
+      if (response.requiresTwoFactor || twoFactorMap[dto.email.trim()]) {
+        startTwoFactorChallenge(dto.email.trim(), response.accessToken, response.expiresAt);
+        navigate('/verify-2fa');
+        return;
+      }
+      establishSession(response.accessToken, response.expiresAt, 'LOCAL');
+      navigate('/admin/users');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Credenciales invalidas o cuenta deshabilitada.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectOAuth = (provider: Exclude<AuthProviderType, 'LOCAL'>): void => {
+    if (provider === 'GOOGLE') {
+      googleLoginRef.current?.querySelector<HTMLButtonElement>("div[role='button']")?.click();
+    } else if (provider === 'GITHUB') {
+      window.location.assign(`${ENV_CONFIG.GITHUB_OAUTH_URL}?client_id=${ENV_CONFIG.GITHUB_CLIENT_ID}`);
+    } else {
+      handleOAuthLogin(provider, '');
+    }
+  };
 
   return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-200">
         <div className="flex flex-col items-center text-center mb-6">
           <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3 shadow-sm">
@@ -91,52 +88,7 @@ export const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        {error && (
-          <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleCredentialsLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electronico</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="usuario@mostrosport.com"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-slate-700">Contraseña</label>
-              <Link to="/forgot-password" className="text-xs font-medium text-indigo-600 hover:underline">
-                ¿Olvido su contraseña?
-              </Link>
-            </div>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-xs focus:border-indigo-600 focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
-          >
-            <LogIn className="h-4 w-4" />
-            <span>{loading ? 'Validando credenciales...' : 'Ingresar al Sistema'}</span>
-          </button>
-        </form>
+        <LoginCredentialsForm loading={loading} error={error} onSubmit={handleCredentialsLogin} />
 
         <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />
@@ -144,38 +96,16 @@ export const LoginPage: React.FC = () => {
           <div className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <div
-          ref={googleLoginRef}
-          style={{
-            display: "none",
-          }}
-        >
+        <div ref={googleLoginRef} className="hidden">
           <GoogleLogin
-            onSuccess={(credentialResponse: CredentialResponse) => handleOAuthLogin("GOOGLE", credentialResponse.credential!)}
-            onError={() => {console.log("Google login failed"); }}
-            />
+            onSuccess={(res: CredentialResponse) => {
+              if (res.credential) handleOAuthLogin('GOOGLE', res.credential);
+            }}
+            onError={() => setError('Fallo en la autenticacion con Google.')}
+          />
         </div>
 
-        <OAuthProviderButtons loading={false} onSelectProvider={(provider) => {
-          if (provider === "GOOGLE") {
-            googleLoginRef.current
-              ?.querySelector("div[role='button']")
-              ?.dispatchEvent(
-                new MouseEvent("click", {
-                  bubbles: true,
-                  cancelable: true,
-                  view: window,
-                })
-              );
-          }
-          else if (provider == "GITHUB")
-          {
-            const github_oauth_page_url = `${ENV_CONFIG.GITHUB_OAUTH_URL}?client_id=${ENV_CONFIG.GITHUB_CLIENT_ID}`;
-            window.location.assign(
-              github_oauth_page_url
-            );
-          }
-        }}/>
+        <OAuthProviderButtons loading={loading} onSelectProvider={handleSelectOAuth} />
 
         <p className="mt-6 text-center text-xs text-slate-500">
           ¿No dispone de una cuenta?{' '}
