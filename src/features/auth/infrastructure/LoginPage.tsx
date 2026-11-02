@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, LogIn, AlertCircle } from 'lucide-react';
 import { authApiService } from '../application/authService';
 import { AuthProviderType, useAuth } from '../../../core/auth/AuthContext';
 import { ENV_CONFIG } from '../../../core/config/env';
 import { OAuthProviderButtons } from './OAuthProviderButtons';
+
+
+import { CredentialResponse, GoogleLogin, GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+
+const GOOGLE_OAUTH_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,6 +19,22 @@ export const LoginPage: React.FC = () => {
 
   const { establishSession, startTwoFactorChallenge } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const codeParam = urlParams.get("code");
+    const issuerParam = urlParams.get("iss");
+
+    console.log("Code: ", codeParam, issuerParam);
+    
+    if (codeParam && issuerParam === "https://github.com/login/oauth")
+    {
+      console.log("meow");
+      handleOAuthLogin("GITHUB", codeParam!)
+      navigate("/");
+    }
+  }, [])
 
   const handleCredentialsLogin = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -41,11 +62,11 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleOAuthLogin = async (provider: Exclude<AuthProviderType, 'LOCAL'>): Promise<void> => {
+  const handleOAuthLogin = async (provider: Exclude<AuthProviderType, 'LOCAL'>, credential: string): Promise<void> => {
     setError(null);
     setLoading(true);
     try {
-      const res = await authApiService.loginWithOAuth(provider, email.trim() || undefined);
+      const res = await authApiService.loginWithOAuth(provider, credential);
       establishSession(res.accessToken, res.expiresAt, provider);
       navigate('/admin/users');
     } catch (err: unknown) {
@@ -55,8 +76,10 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const googleLoginRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-200">
         <div className="flex flex-col items-center text-center mb-6">
           <div className="p-3 rounded-xl bg-indigo-600 text-white mb-3 shadow-sm">
@@ -121,7 +144,38 @@ export const LoginPage: React.FC = () => {
           <div className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <OAuthProviderButtons loading={loading} onSelectProvider={handleOAuthLogin} />
+        <div
+          ref={googleLoginRef}
+          style={{
+            display: "none",
+          }}
+        >
+          <GoogleLogin
+            onSuccess={(credentialResponse: CredentialResponse) => handleOAuthLogin("GOOGLE", credentialResponse.credential!)}
+            onError={() => {console.log("Google login failed"); }}
+            />
+        </div>
+
+        <OAuthProviderButtons loading={false} onSelectProvider={(provider) => {
+          if (provider === "GOOGLE") {
+            googleLoginRef.current
+              ?.querySelector("div[role='button']")
+              ?.dispatchEvent(
+                new MouseEvent("click", {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                })
+              );
+          }
+          else if (provider == "GITHUB")
+          {
+            const github_oauth_page_url = `${ENV_CONFIG.GITHUB_OAUTH_URL}?client_id=${ENV_CONFIG.GITHUB_CLIENT_ID}`;
+            window.location.assign(
+              github_oauth_page_url
+            );
+          }
+        }}/>
 
         <p className="mt-6 text-center text-xs text-slate-500">
           ¿No dispone de una cuenta?{' '}

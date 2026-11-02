@@ -9,10 +9,15 @@ import { LoginPage } from './features/auth/infrastructure/LoginPage';
 import { RegisterPage } from './features/auth/infrastructure/RegisterPage';
 import { PasswordRecoveryPage } from './features/auth/infrastructure/PasswordRecoveryPage';
 import { VerifyTwoFactorPage } from './features/auth/infrastructure/VerifyTwoFactorPage';
+import { ENV_CONFIG } from './core/config/env';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { UsersPage } from './features/users/infrastructure/UsersPage';
 import { RolesPage } from './features/roles/infrastructure/RolesPage';
 
+const GOOGLE_OAUTH_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
+
 export const App: React.FC = () => (
+  <GoogleOAuthProvider clientId={GOOGLE_OAUTH_CLIENT_ID} >
   <AuthProvider>
     <BrowserRouter>
       <Routes>
@@ -38,4 +43,5 @@ export const App: React.FC = () => (
       <DevLoginBypass />
     </BrowserRouter>
   </AuthProvider>
+  </GoogleOAuthProvider>
 );
