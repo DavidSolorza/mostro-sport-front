@@ -6,11 +6,12 @@ import { useAuth } from '../auth/AuthContext';
 const NAV_ITEMS = [
   { group: 'Control de Acceso', items: [
     { to: '/admin/users', label: 'Gestion de Usuarios', icon: Users },
-    { to: '/admin/roles', label: 'Roles y Accesos', icon: KeyRound },
-    { to: '/admin/permissions', label: 'Matriz de Permisos', icon: Lock },
+    { to: '/admin/roles', label: 'Roles de Usuario', icon: KeyRound },
+    { to: '/admin/roles/1/permissions', label: 'Matriz de Permisos', icon: Shield },
+    { to: '/admin/permissions', label: 'Catalogo de Permisos', icon: Lock },
   ]},
   { group: 'Cuenta', items: [
-    { to: '/profile', label: 'Configuracion de Perfil', icon: UserCircle },
+    { to: '/profile', label: 'Mi Perfil y Seguridad', icon: UserCircle },
   ]},
 ];
 

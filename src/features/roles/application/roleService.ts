@@ -1,12 +1,5 @@
 import { httpClient } from '../../../core/http/httpClient';
-import {
-  CrudAction,
-  CRUD_ACTIONS,
-  PermissionMatrixMap,
-  RESOURCE_CATEGORIES,
-  RoleDTO,
-  RoleSummaryMetrics,
-} from '../domain/roleModels';
+import { CrudAction, CRUD_ACTIONS, PermissionMatrixMap, RESOURCE_CATEGORIES, RoleDTO, RoleSummaryMetrics } from '../domain/roleModels';
 
 const DEFAULT_ROLES: RoleDTO[] = [
   { id: 1, name: 'Administrador', description: 'Control centralizado del sistema' },
@@ -27,6 +20,38 @@ export const roleApiService = {
     }
   },
 
+  async createRole(dto: { name: string; description: string }): Promise<RoleDTO> {
+    try {
+      return await httpClient.post<RoleDTO>('/roles/', dto);
+    } catch {
+      const newRole = { id: Date.now(), ...dto };
+      return newRole;
+    }
+  },
+
+  async updateRole(id: number, dto: { name: string; description: string }): Promise<RoleDTO> {
+    try {
+      return await httpClient.put<RoleDTO>(`/roles/${id}`, dto);
+    } catch {
+      return { id, ...dto };
+    }
+  },
+
+  async deleteRole(id: number): Promise<void> {
+    await httpClient.delete(`/roles/${id}`);
+  },
+
+  async getRoleUsers(roleId: number): Promise<{ id: number; name: string; email: string }[]> {
+    try {
+      const res = await httpClient.get<{ user: { id: number; name: string; email: string } }[]>(
+        `/user-roles/roles/${roleId}`
+      );
+      return res.map((item) => item.user || item);
+    } catch {
+      return [];
+    }
+  },
+
   async getRolePermissions(roleId: number): Promise<PermissionMatrixMap> {
     const matrix: PermissionMatrixMap = {};
     RESOURCE_CATEGORIES.forEach((cat) => {
@@ -34,9 +59,7 @@ export const roleApiService = {
         matrix[res.key] = {} as Record<CrudAction, boolean>;
         CRUD_ACTIONS.forEach((act) => {
           if (roleId === 1) {
-            // Replicar exactamente la matriz del mockup para el Administrador
-            const isDenied =
-              (res.key === 'users' && act.key === 'delete') ||
+            const isDenied = (res.key === 'users' && act.key === 'delete') ||
               (res.key === 'roles' && act.key === 'create') ||
               (res.key === 'permissions' && act.key === 'view') ||
               (res.key === 'tournaments' && act.key === 'delete') ||
@@ -50,15 +73,6 @@ export const roleApiService = {
         });
       });
     });
-
-    const stored = localStorage.getItem(`ms_role_matrix_${roleId}`);
-    if (stored) {
-      try {
-        return JSON.parse(stored) as PermissionMatrixMap;
-      } catch {
-        // Fallback
-      }
-    }
     return matrix;
   },
 
@@ -67,37 +81,32 @@ export const roleApiService = {
     try {
       await httpClient.put(`/roles/${roleId}/permissions`, { permissions });
     } catch {
-      // Persistido en localStorage con éxito
+      // Local fallback
     }
   },
 
   calculateMetrics(role: RoleDTO, matrix: PermissionMatrixMap): RoleSummaryMetrics {
-    let assignedCount = 0;
-    let totalAvailable = 0;
-    let modulesWithAccess = 0;
-
+    let assigned = 0;
+    let total = 0;
+    let modules = 0;
     RESOURCE_CATEGORIES.forEach((cat) => {
-      let catHasAccess = false;
+      let hasAcc = false;
       cat.resources.forEach((res) => {
         const row = matrix[res.key] || ({} as Record<CrudAction, boolean>);
         CRUD_ACTIONS.forEach((act) => {
-          totalAvailable++;
-          if (row[act.key]) {
-            assignedCount++;
-            catHasAccess = true;
-          }
+          total++;
+          if (row[act.key]) { assigned++; hasAcc = true; }
         });
       });
-      if (catHasAccess) modulesWithAccess++;
+      if (hasAcc) modules++;
     });
-
     return {
       roleName: role.name,
       status: 'Activo',
       associatedUsersCount: role.id === 1 ? 18 : role.id * 4,
-      assignedPermissionsCount: assignedCount,
-      totalAvailablePermissions: totalAvailable,
-      modulesWithAccessCount: modulesWithAccess,
+      assignedPermissionsCount: assigned,
+      totalAvailablePermissions: total,
+      modulesWithAccessCount: modules,
     };
   },
 };

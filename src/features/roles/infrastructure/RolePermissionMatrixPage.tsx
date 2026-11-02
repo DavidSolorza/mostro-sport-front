@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { roleApiService } from '../application/roleService';
 import { CrudAction, PermissionMatrixMap, RoleDTO, RoleSummaryMetrics } from '../domain/roleModels';
 import { RoleMatrixTopBar } from './RoleMatrixTopBar';
@@ -6,8 +7,9 @@ import { RoleMatrixCategoryTable } from './RoleMatrixCategoryTable';
 import { RoleSummarySidebar } from './RoleSummarySidebar';
 
 export const RolePermissionMatrixPage: React.FC = () => {
+  const { roleId } = useParams<{ roleId?: string }>();
   const [roles, setRoles] = useState<RoleDTO[]>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState<number>(1);
+  const [selectedRoleId, setSelectedRoleId] = useState<number>(Number(roleId) || 1);
   const [matrix, setMatrix] = useState<PermissionMatrixMap>({});
   const [originalMatrix, setOriginalMatrix] = useState<PermissionMatrixMap>({});
   const [saving, setSaving] = useState<boolean>(false);
@@ -17,19 +19,19 @@ export const RolePermissionMatrixPage: React.FC = () => {
     const init = async () => {
       const rolesData = await roleApiService.getRoles();
       setRoles(rolesData);
-      const initialId = rolesData[0]?.id || 1;
-      setSelectedRoleId(initialId);
-      const matrixData = await roleApiService.getRolePermissions(initialId);
+      const targetId = Number(roleId) || rolesData[0]?.id || 1;
+      setSelectedRoleId(targetId);
+      const matrixData = await roleApiService.getRolePermissions(targetId);
       setMatrix(matrixData);
       setOriginalMatrix(matrixData);
     };
     init();
-  }, []);
+  }, [roleId]);
 
-  const handleSelectRole = async (roleId: number): Promise<void> => {
-    setSelectedRoleId(roleId);
+  const handleSelectRole = async (rId: number): Promise<void> => {
+    setSelectedRoleId(rId);
     setFeedback(null);
-    const matrixData = await roleApiService.getRolePermissions(roleId);
+    const matrixData = await roleApiService.getRolePermissions(rId);
     setMatrix(matrixData);
     setOriginalMatrix(matrixData);
   };
