@@ -53,19 +53,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!raw || !email) {
       throw new Error('No existe un proceso de segundo factor activo.');
     }
-    try {
-      const res = await httpClient.post<{ accessToken: string; expiresAt: string }>('/auth/verify-2fa', {
-        email,
-        code,
-      });
-      establishSession(res.accessToken, res.expiresAt, 'LOCAL');
-    } catch (err: unknown) {
-      if (code.length === 6 && /^\d{6}$/.test(code) && raw.tempToken) {
-        establishSession(raw.tempToken, raw.expiresAt, 'LOCAL');
-        return;
-      }
-      throw err;
-    }
+
+    const res = await httpClient.post<{ accessToken: string; expiresAt: string }>('/auth/login/verify-2fa', {
+      email,
+      challengeToken: raw.tempToken,
+      code,
+    });
+
+    establishSession(res.accessToken, res.expiresAt, 'LOCAL');
   };
 
   const cancelTwoFactorChallenge = (): void => {
