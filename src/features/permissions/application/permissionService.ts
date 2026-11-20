@@ -1,32 +1,22 @@
 import { httpClient } from '../../../core/http/httpClient';
 import { CreatePermissionDTO, PermissionResponseDTO, UpdatePermissionDTO } from '../domain/permissionModels';
 
-const DEFAULT_PERMISSIONS: PermissionResponseDTO[] = [
-  { id: 1, method: 'GET', url: '/api/users', model: 'Users' },
-  { id: 2, method: 'POST', url: '/api/users', model: 'Users' },
-  { id: 3, method: 'PUT', url: '/api/users/{id}', model: 'Users' },
-  { id: 4, method: 'DELETE', url: '/api/users/{id}', model: 'Users' },
-  { id: 5, method: 'GET', url: '/api/roles', model: 'Roles' },
-  { id: 6, method: 'POST', url: '/api/roles', model: 'Roles' },
-  { id: 7, method: 'GET', url: '/api/permissions', model: 'Permissions' },
-];
-
 export const permissionApiService = {
   async getPermissions(): Promise<PermissionResponseDTO[]> {
     try {
       const data = await httpClient.get<PermissionResponseDTO[]>('/permissions/');
       if (data && data.length > 0) return data;
-      return DEFAULT_PERMISSIONS;
+      return [];
     } catch {
       const stored = localStorage.getItem('ms_permissions_cache');
       if (stored) {
         try {
           return JSON.parse(stored) as PermissionResponseDTO[];
         } catch {
-          // Fallback
+          return [];
         }
       }
-      return DEFAULT_PERMISSIONS;
+      return [];
     }
   },
 

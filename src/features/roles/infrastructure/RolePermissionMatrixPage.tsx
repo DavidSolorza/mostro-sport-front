@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { roleApiService } from '../application/roleService';
-import { CrudAction, PermissionMatrixMap, RoleDTO, RoleSummaryMetrics } from '../domain/roleModels';
+import { PermissionMatrixMap, RoleDTO, RoleSummaryMetrics } from '../domain/roleModels';
 import { RoleMatrixTopBar } from './RoleMatrixTopBar';
 import { RoleMatrixCategoryTable } from './RoleMatrixCategoryTable';
 import { RoleSummarySidebar } from './RoleSummarySidebar';
@@ -36,14 +36,19 @@ export const RolePermissionMatrixPage: React.FC = () => {
     setOriginalMatrix(matrixData);
   };
 
-  const handleToggleCell = (resourceKey: string, action: CrudAction): void => {
-    setMatrix((prev) => ({
-      ...prev,
-      [resourceKey]: {
-        ...prev[resourceKey],
-        [action]: !prev[resourceKey]?.[action],
-      },
-    }));
+  const handleToggleCell = (modelKey: string, method: string, permissionId: number): void => {
+    setMatrix((prev) => {
+      const entries = prev[modelKey]?.[method] || [];
+      return {
+        ...prev,
+        [modelKey]: {
+          ...prev[modelKey],
+          [method]: entries.map((entry) =>
+            entry.id === permissionId ? { ...entry, assigned: !entry.assigned } : entry
+          ),
+        },
+      };
+    });
   };
 
   const handleReset = (): void => {
@@ -56,7 +61,18 @@ export const RolePermissionMatrixPage: React.FC = () => {
     setFeedback(null);
     try {
       await roleApiService.saveRolePermissions(selectedRoleId, matrix);
-      setOriginalMatrix(matrix);
+      const normalized: PermissionMatrixMap = {};
+      Object.entries(matrix).forEach(([modelKey, methods]) => {
+        normalized[modelKey] = {};
+        Object.entries(methods).forEach(([method, entries]) => {
+          normalized[modelKey][method] = (entries || []).map((entry) => ({
+            ...entry,
+            originallyAssigned: entry.assigned,
+          }));
+        });
+      });
+      setMatrix(normalized);
+      setOriginalMatrix(normalized);
       setFeedback({ type: 'success', message: 'Permisos actualizados correctamente.' });
     } catch {
       setFeedback({ type: 'error', message: 'Error al persistir la matriz de permisos.' });
