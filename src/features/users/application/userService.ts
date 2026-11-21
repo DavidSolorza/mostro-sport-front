@@ -8,12 +8,6 @@ import {
   UserWithRolesDTO,
 } from '../domain/userModels';
 
-const DEFAULT_USERS: UserWithRolesDTO[] = [
-  { id: 1, name: 'Carlos Admin', email: 'admin@uc.edu.co', roles: [{ id: 1, name: 'ADMIN', description: 'Administrador general' }] },
-  { id: 2, name: 'Laura Coordinadora', email: 'laura.coord@mostrosport.com', roles: [{ id: 2, name: 'COORDINADOR', description: 'Coordinacion deportiva' }] },
-  { id: 3, name: 'Miguel Operador', email: 'miguel.oper@mostrosport.com', roles: [{ id: 3, name: 'OPERADOR', description: 'Operador de cancha' }] },
-];
-
 export const userApiService = {
   async getUsers(): Promise<UserWithRolesDTO[]> {
     try {
@@ -38,10 +32,10 @@ export const userApiService = {
         try {
           return JSON.parse(stored) as UserWithRolesDTO[];
         } catch {
-          // Fallback a usuarios predeterminados
+          return []
         }
       }
-      return DEFAULT_USERS;
+      return [];
     }
   },
 
