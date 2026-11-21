@@ -14,6 +14,13 @@ import { RolesListPage } from './features/roles/infrastructure/RolesListPage';
 import { RoleUsersManagementPage } from './features/roles/infrastructure/RoleUsersManagementPage';
 import { RolePermissionMatrixPage } from './features/roles/infrastructure/RolePermissionMatrixPage';
 import { PermissionsListPage } from './features/permissions/infrastructure/PermissionsListPage';
+import { PartidosListPage } from './features/sports/partidos/infrastructure/PartidosListPage';
+import { PizarraCampoPage } from './features/sports/pizarra/infrastructure/PizarraCampoPage';
+import { TorneoDesarrolloPage } from './features/sports/desarrollo-torneo/infrastructure/TorneoDesarrolloPage';
+import { ApuestasPage } from './features/sports/apuestas/infrastructure/ApuestasPage';
+import { BoletosPage } from './features/sports/boletos/infrastructure/BoletosPage';
+import { AficionadoProfilePage } from './features/sports/aficionados/infrastructure/AficionadoProfilePage';
+import { HabilidadesJugadorPage } from './features/sports/habilidades/infrastructure/HabilidadesJugadorPage';
 import { ENV_CONFIG } from './core/config/env';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -41,13 +48,22 @@ export const App: React.FC = () => (
               <Route path="/admin/roles/:roleId/users" element={<RoleUsersManagementPage />} />
               <Route path="/admin/roles/:roleId/permissions" element={<RolePermissionMatrixPage />} />
               <Route path="/admin/permissions" element={<PermissionsListPage />} />
+
+              {/* Gestión Deportiva - Participante B */}
+              <Route path="/sports/partidos" element={<PartidosListPage />} />
+              <Route path="/sports/pizarra" element={<PizarraCampoPage />} />
+              <Route path="/sports/desarrollo" element={<TorneoDesarrolloPage />} />
+              <Route path="/sports/apuestas" element={<ApuestasPage />} />
+              <Route path="/sports/boletos" element={<BoletosPage />} />
+              <Route path="/sports/aficionado" element={<AficionadoProfilePage />} />
+              <Route path="/sports/habilidades" element={<HabilidadesJugadorPage />} />
             </Route>
           </Route>
 
           <Route path="/users" element={<Navigate to="/admin/users" replace />} />
           <Route path="/roles" element={<Navigate to="/admin/roles" replace />} />
           <Route path="/permissions" element={<Navigate to="/admin/permissions" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/sports/partidos" replace />} />
         </Routes>
         <DevLoginBypass />
       </BrowserRouter>

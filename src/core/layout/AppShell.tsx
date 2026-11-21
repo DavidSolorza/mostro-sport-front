@@ -1,19 +1,8 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Users, KeyRound, Lock, UserCircle, LogOut, ShieldAlert, X } from 'lucide-react';
+import { Shield, LogOut, ShieldAlert, X } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-
-const NAV_ITEMS = [
-  { group: 'Control de Acceso', items: [
-    { to: '/admin/users', label: 'Gestion de Usuarios', icon: Users },
-    { to: '/admin/roles', label: 'Roles de Usuario', icon: KeyRound },
-    { to: '/admin/roles/1/permissions', label: 'Matriz de Permisos', icon: Shield },
-    { to: '/admin/permissions', label: 'Catalogo de Permisos', icon: Lock },
-  ]},
-  { group: 'Cuenta', items: [
-    { to: '/profile', label: 'Mi Perfil y Seguridad', icon: UserCircle },
-  ]},
-];
+import { NAV_ITEMS } from './navItems';
 
 export const AppShell: React.FC = () => {
   const { session, logout, forbiddenBanner, clearForbiddenBanner } = useAuth();
