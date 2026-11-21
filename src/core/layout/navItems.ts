@@ -30,7 +30,7 @@ export const NAV_ITEMS = [
     group: 'Control de Acceso',
     items: [
       { to: '/admin/users', label: 'Gestion de Usuarios', icon: Users },
-      { to: '/admin/roles', label: 'Roles de Usuario', icon: KeyRound },
+      { to: '/admin/roles', label: 'Gestion de Roles', icon: KeyRound },
       { to: '/admin/roles/1/permissions', label: 'Matriz de Permisos', icon: Shield },
       { to: '/admin/permissions', label: 'Catalogo de Permisos', icon: Lock },
     ],
