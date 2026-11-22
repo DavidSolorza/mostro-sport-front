@@ -33,13 +33,20 @@ export interface Partido {
 }
 
 export interface CreatePartidoDto {
-  fecha_hora: string;
-  id_torneo: number;
+  fecha_hora?: string;
+  fechaHora?: string;
+  id_torneo?: number;
+  torneoId?: number;
   id_fase?: number;
-  id_escenario: number;
+  faseId?: number;
+  id_escenario?: number;
+  escenarioId?: number;
   id_pelota?: number;
-  id_equipo_local: number;
-  id_equipo_visitante: number;
+  pelotaId?: number;
+  id_equipo_local?: number;
+  equipoLocalId?: number;
+  id_equipo_visitante?: number;
+  equipoVisitanteId?: number;
 }
 
 export interface RegistrarAnotacionDto {

@@ -26,7 +26,10 @@ export interface EmitirBoletoDto {
   codigo: string;
   precio: number;
   estado?: EstadoBoleto;
-  id_partido: number;
-  id_localidad: number;
+  id_partido?: number;
+  partidoId?: number;
+  id_localidad?: number;
+  localidadId?: number;
   id_aficionado?: number;
+  aficionadoId?: number;
 }

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { CreateApuestaDto } from '../domain/apuestaModels';
 import { apuestasService } from '../application/apuestasService';
+import { aficionadosService } from '../../aficionados/application/aficionadosService';
+import { MetodoPagoAficionado } from '../../aficionados/domain/aficionadoModels';
 import { Partido } from '../../partidos/domain/partidoModels';
 import { partidosService } from '../../partidos/application/partidosService';
-import { X, DollarSign, TrendingUp } from 'lucide-react';
+import { X, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -15,21 +17,30 @@ interface Props {
 export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, aficionadoId }) => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [partidoId, setPartidoId] = useState<number>(0);
+  const [metodos, setMetodos] = useState<MetodoPagoAficionado[]>([]);
+  const [metodoId, setMetodoId] = useState<number>(0);
   const [monto, setMonto] = useState<number>(50);
   const [cuota, setCuota] = useState<number>(1.85);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    partidosService.getPartidos().then((res) => {
+    Promise.all([
+      partidosService.getPartidos(),
+      aficionadosService.getMetodosPago(aficionadoId),
+    ]).then(([res, userMetodos]) => {
       const disponibles = res.filter((p) => p.estado === 'PROGRAMADO' || p.estado === 'EN_CURSO');
       setPartidos(disponibles);
+      setMetodos(userMetodos);
       if (disponibles.length > 0) {
         setPartidoId(disponibles[0].id_partido);
         apuestasService.getCuotaPartido(disponibles[0].id_partido).then((c) => setCuota(c.cuota));
       }
+      if (userMetodos.length > 0) {
+        setMetodoId(userMetodos[0].id_metodo_aficionado);
+      }
     });
-  }, [isOpen]);
+  }, [isOpen, aficionadoId]);
 
   const handlePartidoChange = async (id: number) => {
     setPartidoId(id);
@@ -41,12 +52,14 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!metodoId) return;
     setLoading(true);
     try {
       await onSubmit({
         monto: Number(monto),
         id_aficionado: aficionadoId,
         id_partido: Number(partidoId),
+        id_metodo_aficionado: Number(metodoId),
       });
       onClose();
     } finally {
@@ -66,7 +79,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Partido Objetivo</label>
             <select value={partidoId} onChange={(e) => handlePartidoChange(Number(e.target.value))} className="w-full border rounded-lg p-2 font-medium">
@@ -77,7 +90,24 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
               })}
             </select>
           </div>
-          <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-between">
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Método de Pago Aficionado</label>
+            {metodos.length === 0 ? (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 flex items-start gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>No tienes métodos de pago. Regístralo en tu Perfil de Aficionado.</span>
+              </div>
+            ) : (
+              <select value={metodoId} onChange={(e) => setMetodoId(Number(e.target.value))} className="w-full border rounded-lg p-2 font-medium">
+                {metodos.map((m) => (
+                  <option key={m.id_metodo_aficionado} value={m.id_metodo_aficionado}>
+                    {m.metodoPago?.nombre || 'Método'} ({m.referencia})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-between">
             <span className="text-indigo-800 font-semibold flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" /> Cuota Congelada
             </span>
@@ -93,7 +123,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={loading} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">
+            <button type="submit" disabled={loading || metodos.length === 0} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">
               {loading ? 'Procesando...' : 'Apostar Ahora'}
             </button>
           </div>

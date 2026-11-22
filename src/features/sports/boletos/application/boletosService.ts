@@ -7,7 +7,16 @@ export const boletosService = {
   },
 
   async emitirBoleto(dto: EmitirBoletoDto): Promise<Boleto> {
-    return sportsHttpClient.post<Boleto>('/boletos', dto);
+    const payload = {
+      ...dto,
+      partidoId: dto.partidoId ?? dto.id_partido,
+      id_partido: dto.id_partido ?? dto.partidoId,
+      localidadId: dto.localidadId ?? dto.id_localidad,
+      id_localidad: dto.id_localidad ?? dto.localidadId,
+      aficionadoId: dto.aficionadoId ?? dto.id_aficionado,
+      id_aficionado: dto.id_aficionado ?? dto.aficionadoId,
+    };
+    return sportsHttpClient.post<Boleto>('/boletos', payload);
   },
 
   async cambiarEstadoBoleto(id: number, estado: EstadoBoleto): Promise<Boleto> {

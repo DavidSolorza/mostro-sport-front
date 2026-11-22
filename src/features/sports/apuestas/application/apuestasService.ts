@@ -11,7 +11,16 @@ export const apuestasService = {
   },
 
   async crearApuesta(dto: CreateApuestaDto): Promise<Apuesta> {
-    return sportsHttpClient.post<Apuesta>('/apuestas', dto);
+    const payload = {
+      ...dto,
+      aficionadoId: dto.aficionadoId ?? dto.id_aficionado,
+      id_aficionado: dto.id_aficionado ?? dto.aficionadoId,
+      partidoId: dto.partidoId ?? dto.id_partido,
+      id_partido: dto.id_partido ?? dto.partidoId,
+      metodoAficionadoId: dto.metodoAficionadoId ?? dto.id_metodo_aficionado,
+      id_metodo_aficionado: dto.id_metodo_aficionado ?? dto.metodoAficionadoId,
+    };
+    return sportsHttpClient.post<Apuesta>('/apuestas', payload);
   },
 
   async cancelarApuesta(id: number): Promise<Apuesta> {

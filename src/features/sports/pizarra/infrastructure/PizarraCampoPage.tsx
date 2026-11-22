@@ -6,6 +6,8 @@ import { CampoDeportivoSvg } from './CampoDeportivoSvg';
 import { PizarraEstado } from '../domain/pizarraModels';
 import { Activity, Play } from 'lucide-react';
 
+const norm = (v: number) => (v >= 0 && v <= 1 ? v * 100 : Math.min(100, Math.max(0, v)));
+
 export const PizarraCampoPage: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [selectedPartido, setSelectedPartido] = useState<Partido | null>(null);
@@ -43,11 +45,11 @@ export const PizarraCampoPage: React.FC = () => {
       const nuevoBalon = ultimas.find((u) => u.esPelota);
       const nuevosJugadores = prev.jugadores.map((j) => {
         const pos = ultimas.find((u) => u.jugadorId === j.id);
-        return pos ? { ...j, x: pos.x * 100, y: pos.y * 100 } : j;
+        return pos ? { ...j, x: norm(pos.x), y: norm(pos.y) } : j;
       });
       return {
         ...prev,
-        balon: nuevoBalon ? { x: nuevoBalon.x * 100, y: nuevoBalon.y * 100 } : prev.balon,
+        balon: nuevoBalon ? { x: norm(nuevoBalon.x), y: norm(nuevoBalon.y) } : prev.balon,
         jugadores: nuevosJugadores,
       };
     });
@@ -55,14 +57,14 @@ export const PizarraCampoPage: React.FC = () => {
 
   const handleSimularJugada = async () => {
     if (!selectedPartido || !pizarra) return;
-    const dx = (Math.random() - 0.5) * 0.1;
-    const dy = (Math.random() - 0.5) * 0.1;
+    const dx = (Math.random() - 0.5) * 10;
+    const dy = (Math.random() - 0.5) * 10;
     const lote: Partial<PosicionRemota>[] = [
-      { esPelota: true, x: Math.min(0.9, Math.max(0.1, pizarra.balon.x / 100 + dx)), y: Math.min(0.9, Math.max(0.1, pizarra.balon.y / 100 + dy)) },
+      { esPelota: true, x: Math.min(90, Math.max(10, pizarra.balon.x + dx)), y: Math.min(90, Math.max(10, pizarra.balon.y + dy)) },
       ...pizarra.jugadores.slice(0, 4).map((j) => ({
         jugadorId: j.id,
-        x: Math.min(0.9, Math.max(0.1, j.x / 100 + (Math.random() - 0.5) * 0.05)),
-        y: Math.min(0.9, Math.max(0.1, j.y / 100 + (Math.random() - 0.5) * 0.05)),
+        x: Math.min(90, Math.max(10, j.x + (Math.random() - 0.5) * 6)),
+        y: Math.min(90, Math.max(10, j.y + (Math.random() - 0.5) * 6)),
       })),
     ];
     await pizarraService.enviarLotePosiciones(selectedPartido.id_partido, lote);
