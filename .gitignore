@@ -6,4 +6,8 @@ dist/
 *.log
 .DS_Store
 .vscode/
+CLAUDE.md
+/context
+/.claude
+
 

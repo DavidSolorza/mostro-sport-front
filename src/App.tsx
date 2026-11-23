@@ -21,6 +21,13 @@ import { ApuestasPage } from './features/sports/apuestas/infrastructure/Apuestas
 import { BoletosPage } from './features/sports/boletos/infrastructure/BoletosPage';
 import { AficionadoProfilePage } from './features/sports/aficionados/infrastructure/AficionadoProfilePage';
 import { HabilidadesJugadorPage } from './features/sports/habilidades/infrastructure/HabilidadesJugadorPage';
+import { EquiposListPage } from './features/sports/equipos/infrastructure/EquiposListPage';
+import { EquipoDetallePage } from './features/sports/equipos/infrastructure/EquipoDetallePage';
+import { JugadoresListPage } from './features/sports/jugadores/infrastructure/JugadoresListPage';
+import { EscenariosListPage } from './features/sports/escenarios/infrastructure/EscenariosListPage';
+import { EscenarioDetallePage } from './features/sports/escenarios/infrastructure/EscenarioDetallePage';
+import { TorneosListPage } from './features/sports/torneos/infrastructure/TorneosListPage';
+import { TorneoGestionPage } from './features/sports/torneos/infrastructure/TorneoGestionPage';
 import { ENV_CONFIG } from './core/config/env';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -57,6 +64,15 @@ export const App: React.FC = () => (
               <Route path="/sports/boletos" element={<BoletosPage />} />
               <Route path="/sports/aficionado" element={<AficionadoProfilePage />} />
               <Route path="/sports/habilidades" element={<HabilidadesJugadorPage />} />
+
+              {/* Gestión Deportiva - Participante A */}
+              <Route path="/sports/equipos" element={<EquiposListPage />} />
+              <Route path="/sports/equipos/:equipoId" element={<EquipoDetallePage />} />
+              <Route path="/sports/jugadores" element={<JugadoresListPage />} />
+              <Route path="/sports/escenarios" element={<EscenariosListPage />} />
+              <Route path="/sports/escenarios/:escenarioId" element={<EscenarioDetallePage />} />
+              <Route path="/sports/torneos" element={<TorneosListPage />} />
+              <Route path="/sports/torneos/:torneoId" element={<TorneoGestionPage />} />
             </Route>
           </Route>
 

@@ -11,6 +11,8 @@ import {
   Ticket,
   UserCheck,
   Award,
+  Building2,
+  UserRound,
 } from 'lucide-react';
 
 export const NAV_ITEMS = [
@@ -24,6 +26,15 @@ export const NAV_ITEMS = [
       { to: '/sports/boletos', label: 'Boletos y Localidades', icon: Ticket },
       { to: '/sports/aficionado', label: 'Perfil Aficionado', icon: UserCheck },
       { to: '/sports/habilidades', label: 'Habilidades Jugador', icon: Award },
+    ],
+  },
+  {
+    group: 'Gestión Deportiva (A)',
+    items: [
+      { to: '/sports/torneos', label: 'Torneos', icon: Trophy },
+      { to: '/sports/equipos', label: 'Equipos', icon: Users },
+      { to: '/sports/jugadores', label: 'Jugadores', icon: UserRound },
+      { to: '/sports/escenarios', label: 'Escenarios', icon: Building2 },
     ],
   },
   {
