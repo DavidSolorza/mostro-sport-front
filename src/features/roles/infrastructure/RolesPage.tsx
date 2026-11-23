@@ -15,12 +15,8 @@ import {
 import { HttpError } from '../../../core/errors/HttpError';
 import { ConfirmDialog } from '../../../core/layout/ConfirmDialog';
 import { roleApiService } from '../application/roleService';
-import {
-  CreateRoleDTO,
-  RoleUserResponseDTO,
-  RoleResponseDTO,
-  UpdateRoleDTO,
-} from '../domain/roleModels';
+import { RoleDTO } from '../domain/roleModels';
+import { userApiService } from '../../users/application/userService';
 import { UserResponseDTO } from '../../users/domain/userModels';
 
 type RoleFormValues = {
@@ -28,17 +24,21 @@ type RoleFormValues = {
   description: string;
 };
 
+type RoleUserAssignment = {
+  user: UserResponseDTO;
+};
+
 type RoleField = keyof RoleFormValues;
 type RoleFieldErrors = Partial<Record<RoleField, string>>;
 
 interface RoleFormDialogProps {
-  role: RoleResponseDTO | null;
+  role: RoleDTO | null;
   onClose: () => void;
   onSave: (values: RoleFormValues) => Promise<void>;
 }
 
 interface RoleUsersDialogProps {
-  role: RoleResponseDTO;
+  role: RoleDTO;
   onClose: () => void;
 }
 
@@ -208,7 +208,7 @@ const RoleFormDialog: React.FC<RoleFormDialogProps> = ({ role, onClose, onSave }
 
 const RoleUsersDialog: React.FC<RoleUsersDialogProps> = ({ role, onClose }) => {
   const [users, setUsers] = useState<UserResponseDTO[]>([]);
-  const [assignments, setAssignments] = useState<RoleUserResponseDTO[]>([]);
+  const [assignments, setAssignments] = useState<RoleUserAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -220,11 +220,11 @@ const RoleUsersDialog: React.FC<RoleUsersDialogProps> = ({ role, onClose }) => {
     setLoadError(null);
     try {
       const [allUsers, roleAssignments] = await Promise.all([
-        roleApiService.listUsers(),
-        roleApiService.listRoleAssignments(role.id),
+        userApiService.getUsers(),
+        roleApiService.getRoleUsers(role.id),
       ]);
       setUsers(allUsers);
-      setAssignments(roleAssignments);
+      setAssignments(roleAssignments.map((user) => ({ user })));
     } catch (error: unknown) {
       setLoadError(getErrorMessage(error, 'No fue posible cargar los usuarios y sus asignaciones.'));
     } finally {
@@ -254,14 +254,11 @@ const RoleUsersDialog: React.FC<RoleUsersDialogProps> = ({ role, onClose }) => {
     setActionError(null);
     try {
       if (assignedUserIds.has(user.id)) {
-        await roleApiService.removeUserRole(user.id, role.id);
+        await userApiService.removeRole(user.id, role.id);
         setAssignments((current) => current.filter((assignment) => assignment.user.id !== user.id));
       } else {
-        const assignment = await roleApiService.assignUser(user.id, role.id);
-        setAssignments((current) => [
-          ...current,
-          { id: assignment.id, roleId: role.id, user },
-        ]);
+        await userApiService.assignRole({ userId: user.id, roleId: role.id });
+        setAssignments((current) => [...current, { user }]);
       }
     } catch (error: unknown) {
       setActionError(getErrorMessage(error, 'No fue posible actualizar la asignacion del rol.'));
@@ -413,21 +410,21 @@ const RoleUsersDialog: React.FC<RoleUsersDialogProps> = ({ role, onClose }) => {
 };
 
 export const RolesPage: React.FC = () => {
-  const [roles, setRoles] = useState<RoleResponseDTO[]>([]);
+  const [roles, setRoles] = useState<RoleDTO[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [formRole, setFormRole] = useState<RoleResponseDTO | null | undefined>(undefined);
-  const [roleToDelete, setRoleToDelete] = useState<RoleResponseDTO | null>(null);
-  const [roleForUsers, setRoleForUsers] = useState<RoleResponseDTO | null>(null);
+  const [formRole, setFormRole] = useState<RoleDTO | null | undefined>(undefined);
+  const [roleToDelete, setRoleToDelete] = useState<RoleDTO | null>(null);
+  const [roleForUsers, setRoleForUsers] = useState<RoleDTO | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadRoles = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      setRoles(await roleApiService.list());
+      setRoles(await roleApiService.getRoles());
     } catch (error: unknown) {
       setLoadError(getErrorMessage(error, 'No fue posible cargar los roles.'));
     } finally {
@@ -449,12 +446,10 @@ export const RolesPage: React.FC = () => {
 
   const saveRole = async (values: RoleFormValues): Promise<void> => {
     if (formRole) {
-      const dto: UpdateRoleDTO = { name: values.name, description: values.description };
-      const updatedRole = await roleApiService.update(formRole.id, dto);
+      const updatedRole = await roleApiService.updateRole(formRole.id, values);
       setRoles((current) => current.map((role) => (role.id === updatedRole.id ? updatedRole : role)));
     } else {
-      const dto: CreateRoleDTO = { name: values.name, description: values.description };
-      const createdRole = await roleApiService.create(dto);
+      const createdRole = await roleApiService.createRole(values);
       setRoles((current) => [createdRole, ...current]);
     }
     setFormRole(undefined);
@@ -465,7 +460,7 @@ export const RolesPage: React.FC = () => {
     setIsDeleting(true);
     setActionError(null);
     try {
-      await roleApiService.remove(roleToDelete.id);
+      await roleApiService.deleteRole(roleToDelete.id);
       setRoles((current) => current.filter((role) => role.id !== roleToDelete.id));
       setRoleToDelete(null);
     } catch (error: unknown) {

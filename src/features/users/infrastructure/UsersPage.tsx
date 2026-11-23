@@ -18,13 +18,18 @@ import {
 import { HttpError } from '../../../core/errors/HttpError';
 import { ConfirmDialog } from '../../../core/layout/ConfirmDialog';
 import { roleApiService } from '../../roles/application/roleService';
-import { RoleResponseDTO, UserRoleResponseDTO } from '../../roles/domain/roleModels';
+import { RoleDTO } from '../../roles/domain/roleModels';
 import { userApiService } from '../application/userService';
 import {
   CreateUserDTO,
   UpdateUserDTO,
   UserResponseDTO,
+  UserWithRolesDTO,
 } from '../domain/userModels';
+
+type UserRoleAssignment = {
+  role: RoleDTO;
+};
 
 type UserFormValues = {
   name: string;
@@ -244,25 +249,26 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ user, onClose, onSave }
 };
 
 const UserRolesDialog: React.FC<UserRolesDialogProps> = ({ user, onClose }) => {
-  const [roles, setRoles] = useState<RoleResponseDTO[]>([]);
-  const [assignments, setAssignments] = useState<UserRoleResponseDTO[]>([]);
+  const [roles, setRoles] = useState<RoleDTO[]>([]);
+  const [assignments, setAssignments] = useState<UserRoleAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyRoleId, setBusyRoleId] = useState<number | null>(null);
-  const [roleToRemove, setRoleToRemove] = useState<RoleResponseDTO | null>(null);
+  const [roleToRemove, setRoleToRemove] = useState<RoleDTO | null>(null);
   const [query, setQuery] = useState('');
 
   const loadData = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [allRoles, userAssignments] = await Promise.all([
-        roleApiService.list(),
-        roleApiService.listUserAssignments(user.id),
+      const [allRoles, allUsers] = await Promise.all([
+        roleApiService.getRoles(),
+        userApiService.getUsers(),
       ]);
       setRoles(allRoles);
-      setAssignments(userAssignments);
+      const userWithRoles = allUsers.find((item: UserWithRolesDTO) => item.id === user.id);
+      setAssignments((userWithRoles?.roles ?? []).map((role) => ({ role })));
     } catch (error: unknown) {
       setLoadError(getErrorMessage(error, 'No fue posible cargar los roles del usuario.'));
     } finally {
@@ -287,12 +293,12 @@ const UserRolesDialog: React.FC<UserRolesDialogProps> = ({ user, onClose }) => {
     );
   }, [query, roles]);
 
-  const assignRole = async (role: RoleResponseDTO): Promise<void> => {
+  const assignRole = async (role: RoleDTO): Promise<void> => {
     setBusyRoleId(role.id);
     setActionError(null);
     try {
-      const assignment = await roleApiService.assignUser(user.id, role.id);
-      setAssignments((current) => [...current, assignment]);
+      await userApiService.assignRole({ userId: user.id, roleId: role.id });
+      setAssignments((current) => [...current, { role }]);
     } catch (error: unknown) {
       setActionError(getErrorMessage(error, 'No fue posible asignar el rol.'));
     } finally {
@@ -305,7 +311,7 @@ const UserRolesDialog: React.FC<UserRolesDialogProps> = ({ user, onClose }) => {
     setBusyRoleId(roleToRemove.id);
     setActionError(null);
     try {
-      await roleApiService.removeUserRole(user.id, roleToRemove.id);
+      await userApiService.removeRole(user.id, roleToRemove.id);
       setAssignments((current) =>
         current.filter((assignment) => assignment.role.id !== roleToRemove.id)
       );
@@ -498,7 +504,7 @@ export const UsersPage: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      setUsers(await userApiService.list());
+      setUsers(await userApiService.getUsers());
     } catch (error: unknown) {
       setLoadError(getErrorMessage(error, 'No fue posible cargar los usuarios.'));
     } finally {
@@ -525,7 +531,7 @@ export const UsersPage: React.FC = () => {
         email: values.email,
         ...(values.password ? { password: values.password } : {}),
       };
-      const updatedUser = await userApiService.update(formUser.id, dto);
+      const updatedUser = await userApiService.updateUser(formUser.id, dto);
       setUsers((current) => current.map((user) => (user.id === updatedUser.id ? updatedUser : user)));
     } else {
       const dto: CreateUserDTO = {
@@ -533,7 +539,7 @@ export const UsersPage: React.FC = () => {
         email: values.email,
         password: values.password,
       };
-      const createdUser = await userApiService.create(dto);
+      const createdUser = await userApiService.createUser(dto);
       setUsers((current) => [createdUser, ...current]);
     }
     setFormUser(undefined);
@@ -544,7 +550,7 @@ export const UsersPage: React.FC = () => {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      await userApiService.remove(userToDelete.id);
+      await userApiService.deleteUser(userToDelete.id);
       setUsers((current) => current.filter((user) => user.id !== userToDelete.id));
       setUserToDelete(null);
       setLoadError(null);
