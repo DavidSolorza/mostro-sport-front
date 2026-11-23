@@ -1,138 +1,108 @@
 import React, { useState, useEffect } from 'react';
 import { Partido } from '../../partidos/domain/partidoModels';
 import { partidosService } from '../../partidos/application/partidosService';
-import { pizarraService, PosicionRemota } from '../application/pizarraService';
+import { usePizarraSimulacion } from '../application/usePizarraSimulacion';
 import { CampoDeportivoSvg } from './CampoDeportivoSvg';
-import { PizarraEstado } from '../domain/pizarraModels';
-import { Activity, Play } from 'lucide-react';
+import { JugadoresCapaTactico } from './JugadoresCapaTactico';
+import { TableroMarcadorVivo } from './TableroMarcadorVivo';
+import { ControlesSimulacionBar } from './ControlesSimulacionBar';
+import { FeedEventosEnVivo } from './FeedEventosEnVivo';
+import { EstadisticasPartidoPanel } from './EstadisticasPartidoPanel';
 
-const norm = (v: number) => (v >= 0 && v <= 1 ? v * 100 : Math.min(100, Math.max(0, v)));
+const nombreEquipo = (p: Partido | null, rol: 'LOCAL' | 'VISITANTE') =>
+  p?.partidoEquipos?.find((pe) => pe.rol === rol)?.equipo?.nombre || (rol === 'LOCAL' ? 'Local' : 'Visitante');
 
 export const PizarraCampoPage: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
-  const [selectedPartido, setSelectedPartido] = useState<Partido | null>(null);
-  const [pizarra, setPizarra] = useState<PizarraEstado | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [selected, setSelected] = useState<Partido | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const t = usePizarraSimulacion(selected);
 
   useEffect(() => {
-    partidosService.getPartidos().then((data) => {
-      setPartidos(data);
-      const enCurso = data.find((p) => p.estado === 'EN_CURSO') || data[0];
-      if (enCurso) {
-        setSelectedPartido(enCurso);
-        setPizarra(pizarraService.generarAlineacionDefault(enCurso));
-      }
-      setLoading(false);
-    });
+    partidosService
+      .getPartidos()
+      .then((data) => {
+        setPartidos(data);
+        const inicial = data.find((p) => p.estado === 'EN_CURSO') || data[0];
+        if (inicial) {
+          setSelected(inicial);
+          t.cargar(inicial);
+        }
+      })
+      .catch(() => setError('No se pudieron cargar los partidos. Verifica tu conexión o permisos.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!selectedPartido) return;
-    const interval = setInterval(async () => {
-      try {
-        const ultimas = await pizarraService.getUltimasPosiciones(selectedPartido.id_partido);
-        if (ultimas.length > 0) aplicarPosicionesRemotas(ultimas);
-      } catch {
-        // En caso de que no haya registradas aún, mantiene la alineación
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [selectedPartido, pizarra]);
-
-  const aplicarPosicionesRemotas = (ultimas: PosicionRemota[]) => {
-    setPizarra((prev) => {
-      if (!prev) return prev;
-      const nuevoBalon = ultimas.find((u) => u.esPelota);
-      const nuevosJugadores = prev.jugadores.map((j) => {
-        const pos = ultimas.find((u) => u.jugadorId === j.id);
-        return pos ? { ...j, x: norm(pos.x), y: norm(pos.y) } : j;
-      });
-      return {
-        ...prev,
-        balon: nuevoBalon ? { x: norm(nuevoBalon.x), y: norm(nuevoBalon.y) } : prev.balon,
-        jugadores: nuevosJugadores,
-      };
-    });
-  };
-
-  const handleSimularJugada = async () => {
-    if (!selectedPartido || !pizarra) return;
-    const dx = (Math.random() - 0.5) * 10;
-    const dy = (Math.random() - 0.5) * 10;
-    const lote: Partial<PosicionRemota>[] = [
-      { esPelota: true, x: Math.min(90, Math.max(10, pizarra.balon.x + dx)), y: Math.min(90, Math.max(10, pizarra.balon.y + dy)) },
-      ...pizarra.jugadores.slice(0, 4).map((j) => ({
-        jugadorId: j.id,
-        x: Math.min(90, Math.max(10, j.x + (Math.random() - 0.5) * 6)),
-        y: Math.min(90, Math.max(10, j.y + (Math.random() - 0.5) * 6)),
-      })),
-    ];
-    await pizarraService.enviarLotePosiciones(selectedPartido.id_partido, lote);
-    const ultimas = await pizarraService.getUltimasPosiciones(selectedPartido.id_partido);
-    aplicarPosicionesRemotas(ultimas);
-  };
-
-  const local = selectedPartido?.partidoEquipos?.find((pe) => pe.rol === 'LOCAL')?.equipo?.nombre || 'Local';
-  const visitante = selectedPartido?.partidoEquipos?.find((pe) => pe.rol === 'VISITANTE')?.equipo?.nombre || 'Visitante';
+  const local = nombreEquipo(selected, 'LOCAL');
+  const visitante = nombreEquipo(selected, 'VISITANTE');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5 max-w-6xl mx-auto pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-600" /> Pizarra Táctica en Vivo (HU-GC-09)
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">Seguimiento 2D con historial de posiciones espaciales y recarga en vivo.</p>
+          <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Tablero Táctico en Vivo</h1>
+          <p className="text-xs text-slate-500">Simulación deportiva 2D, historial espacial y estadísticas.</p>
         </div>
-        <button
-          onClick={handleSimularJugada}
-          className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm"
-        >
-          <Play className="w-3.5 h-3.5" /> Simular Jugada / Movimiento
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3 bg-white p-3 rounded-xl border shadow-sm">
-        <label className="text-xs font-semibold text-slate-700">Encuentro:</label>
         <select
-          value={selectedPartido?.id_partido || ''}
+          value={selected?.id_partido || ''}
           onChange={(e) => {
             const p = partidos.find((item) => item.id_partido === Number(e.target.value));
             if (p) {
-              setSelectedPartido(p);
-              setPizarra(pizarraService.generarAlineacionDefault(p));
+              setSelected(p);
+              t.cargar(p);
             }
           }}
-          className="border rounded-lg p-2 text-xs font-medium flex-1 max-w-md"
+          className="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold bg-slate-50 shadow-xs"
         >
-          {partidos.map((p) => {
-            const l = p.partidoEquipos?.find((pe) => pe.rol === 'LOCAL')?.equipo?.nombre || 'Local';
-            const v = p.partidoEquipos?.find((pe) => pe.rol === 'VISITANTE')?.equipo?.nombre || 'Visitante';
-            return <option key={p.id_partido} value={p.id_partido}>[{p.estado}] {l} vs {v}</option>;
-          })}
+          {partidos.map((p) => (
+            <option key={p.id_partido} value={p.id_partido}>
+              [{p.estado}] {nombreEquipo(p, 'LOCAL')} vs {nombreEquipo(p, 'VISITANTE')}
+            </option>
+          ))}
         </select>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-slate-400 text-xs">Cargando pizarra...</div>
-      ) : selectedPartido && pizarra ? (
+      {loading && <div className="text-center py-16 text-slate-400 text-xs">Cargando tablero y alineaciones...</div>}
+      {error && <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs">{error}</div>}
+      {!loading && !error && partidos.length === 0 && (
+        <div className="text-center py-16 text-slate-400 text-xs">No hay partidos registrados para mostrar en el tablero.</div>
+      )}
+
+      {selected && t.pizarra && (
         <div className="space-y-4">
-          <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between shadow-lg">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-xs font-bold text-emerald-400">{selectedPartido.estado}</span>
-            </div>
-            <div className="flex items-center gap-4 text-center">
-              <span className="text-sm font-bold">{local}</span>
-              <span className="text-xl font-extrabold text-indigo-400">{selectedPartido.anotaciones?.length || 0}</span>
-              <span className="text-xs text-slate-400">vs</span>
-              <span className="text-sm font-bold">{visitante}</span>
-            </div>
-            <div className="text-xs text-slate-400">Min: <span className="text-white font-bold">{pizarra.minutoActual}'</span></div>
+          <TableroMarcadorVivo
+            localNombre={local}
+            visitanteNombre={visitante}
+            marcadorLocal={t.pizarra.marcadorLocal}
+            marcadorVisitante={t.pizarra.marcadorVisitante}
+            golesOficiales={t.pizarra.golesOficiales}
+            minuto={t.pizarra.minutoActual}
+            segundo={t.pizarra.segundoActual}
+            periodo={t.pizarra.periodo}
+            estado={selected.estado}
+            torneoNombre={selected.torneo?.nombre}
+            escenarioNombre={selected.escenario?.nombre}
+          />
+          <div className="relative w-full aspect-[16/10] bg-emerald-800 rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-900">
+            <CampoDeportivoSvg />
+            <JugadoresCapaTactico jugadores={t.pizarra.jugadores} balon={t.pizarra.balon} mostrarGol={t.mostrarGol} />
           </div>
-          <CampoDeportivoSvg jugadores={pizarra.jugadores} balon={pizarra.balon} />
+          <ControlesSimulacionBar
+            simulando={t.simulando}
+            velocidad={t.velocidad}
+            onToggleSimulacion={t.toggleSimulacion}
+            onCambiarVelocidad={t.setVelocidad}
+            onSimularPase={t.pase}
+            onSimularRemate={t.rematar}
+            onRestablecer={t.restablecer}
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FeedEventosEnVivo eventos={t.pizarra.eventos} />
+            <EstadisticasPartidoPanel stats={t.pizarra.estadisticas} localNombre={local} visitanteNombre={visitante} />
+          </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

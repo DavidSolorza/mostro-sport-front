@@ -1,6 +1,7 @@
-import { JugadorTactico, PizarraEstado } from '../domain/pizarraModels';
+import { PizarraEstado } from '../domain/pizarraModels';
 import { Partido } from '../../partidos/domain/partidoModels';
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
+import { simuladorJugadasService } from './simuladorJugadasService';
 
 export interface PosicionRemota {
   jugadorId?: number;
@@ -12,24 +13,16 @@ export interface PosicionRemota {
 
 export const pizarraService = {
   generarAlineacionDefault(partido: Partido): PizarraEstado {
-    const jugadores: JugadorTactico[] = [
-      { id: 1, nombre: 'Portero Local', equipo: 'LOCAL', x: 8, y: 50, posicion: 'POR' },
-      { id: 2, nombre: 'Defensa 1', equipo: 'LOCAL', x: 22, y: 25, posicion: 'DEF' },
-      { id: 3, nombre: 'Defensa 2', equipo: 'LOCAL', x: 22, y: 75, posicion: 'DEF' },
-      { id: 4, nombre: 'Medio', equipo: 'LOCAL', x: 35, y: 50, posicion: 'MED' },
-      { id: 5, nombre: 'Delantero', equipo: 'LOCAL', x: 45, y: 50, posicion: 'DEL' },
-      { id: 6, nombre: 'Delantero Vis', equipo: 'VISITANTE', x: 55, y: 50, posicion: 'DEL' },
-      { id: 7, nombre: 'Medio Vis', equipo: 'VISITANTE', x: 65, y: 50, posicion: 'MED' },
-      { id: 8, nombre: 'Defensa Vis 1', equipo: 'VISITANTE', x: 78, y: 25, posicion: 'DEF' },
-      { id: 9, nombre: 'Defensa Vis 2', equipo: 'VISITANTE', x: 78, y: 75, posicion: 'DEF' },
-      { id: 10, nombre: 'Portero Vis', equipo: 'VISITANTE', x: 92, y: 50, posicion: 'POR' },
-    ];
-
+    const estado = simuladorJugadasService.crearEstadoInicial(partido.id_partido);
     return {
+      ...estado,
       partidoId: partido.id_partido,
       minutoActual: Math.min(90, Math.max(1, (partido.anotaciones?.length || 0) * 15)),
-      balon: { x: 50, y: 50 },
-      jugadores,
+      // El marcador simulado inicia en 0-0; los goles oficiales se muestran por separado
+      // (el backend no expone a qué equipo pertenece cada anotación).
+      marcadorLocal: 0,
+      marcadorVisitante: 0,
+      golesOficiales: partido.anotaciones?.length || 0,
     };
   },
 

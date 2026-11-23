@@ -19,6 +19,8 @@ export const apuestasService = {
       id_partido: dto.id_partido ?? dto.partidoId,
       metodoAficionadoId: dto.metodoAficionadoId ?? dto.id_metodo_aficionado,
       id_metodo_aficionado: dto.id_metodo_aficionado ?? dto.metodoAficionadoId,
+      equipoId: dto.equipoId ?? dto.id_equipo,
+      id_equipo: dto.id_equipo ?? dto.equipoId,
     };
     return sportsHttpClient.post<Apuesta>('/apuestas', payload);
   },

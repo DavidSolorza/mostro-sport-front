@@ -6,6 +6,7 @@ import { MetodoPagoAficionado } from '../../aficionados/domain/aficionadoModels'
 import { Partido } from '../../partidos/domain/partidoModels';
 import { partidosService } from '../../partidos/application/partidosService';
 import { X, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
+import { SelectorEquipoApuesta } from './SelectorEquipoApuesta';
 
 interface Props {
   isOpen: boolean;
@@ -20,8 +21,14 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
   const [metodos, setMetodos] = useState<MetodoPagoAficionado[]>([]);
   const [metodoId, setMetodoId] = useState<number>(0);
   const [monto, setMonto] = useState<number>(50);
+  const [equipoId, setEquipoId] = useState<number>(0);
   const [cuota, setCuota] = useState<number>(1.85);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const seleccionarPartido = (p?: Partido) => {
+    setPartidoId(p?.id_partido ?? 0);
+    setEquipoId(p?.partidoEquipos?.[0]?.id_equipo ?? 0);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -29,11 +36,12 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
       partidosService.getPartidos(),
       aficionadosService.getMetodosPago(aficionadoId),
     ]).then(([res, userMetodos]) => {
-      const disponibles = res.filter((p) => p.estado === 'PROGRAMADO' || p.estado === 'EN_CURSO');
+      // Solo se puede apostar antes de que inicie el partido
+      const disponibles = res.filter((p) => p.estado === 'PROGRAMADO');
       setPartidos(disponibles);
       setMetodos(userMetodos);
       if (disponibles.length > 0) {
-        setPartidoId(disponibles[0].id_partido);
+        seleccionarPartido(disponibles[0]);
         apuestasService.getCuotaPartido(disponibles[0].id_partido).then((c) => setCuota(c.cuota));
       }
       if (userMetodos.length > 0) {
@@ -43,7 +51,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
   }, [isOpen, aficionadoId]);
 
   const handlePartidoChange = async (id: number) => {
-    setPartidoId(id);
+    seleccionarPartido(partidos.find((p) => p.id_partido === id));
     const c = await apuestasService.getCuotaPartido(id);
     setCuota(c.cuota);
   };
@@ -52,7 +60,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!metodoId) return;
+    if (!metodoId || !equipoId) return;
     setLoading(true);
     try {
       await onSubmit({
@@ -60,6 +68,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
         id_aficionado: aficionadoId,
         id_partido: Number(partidoId),
         id_metodo_aficionado: Number(metodoId),
+        id_equipo: equipoId,
       });
       onClose();
     } finally {
@@ -90,6 +99,11 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
               })}
             </select>
           </div>
+          <SelectorEquipoApuesta
+            partido={partidos.find((p) => p.id_partido === partidoId)}
+            equipoId={equipoId}
+            onChange={setEquipoId}
+          />
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Método de Pago Aficionado</label>
             {metodos.length === 0 ? (
@@ -123,7 +137,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={loading || metodos.length === 0} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">
+            <button type="submit" disabled={loading || metodos.length === 0 || !equipoId} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">
               {loading ? 'Procesando...' : 'Apostar Ahora'}
             </button>
           </div>
