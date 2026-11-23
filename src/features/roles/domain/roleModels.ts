@@ -63,7 +63,16 @@ export interface RoleDTO {
   description: string;
 }
 
-export type PermissionMatrixMap = Record<string, Record<CrudAction, boolean>>;
+export interface PermissionMatrixEntry {
+  id: number;
+  url: string;
+  method: string;
+  model: string;
+  assigned: boolean;
+  originallyAssigned: boolean;
+}
+
+export type PermissionMatrixMap = Record<string, Partial<Record<string, PermissionMatrixEntry[]>>>;
 
 export interface RoleSummaryMetrics {
   roleName: string;

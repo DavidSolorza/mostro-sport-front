@@ -1,102 +1,98 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Users, KeyRound, Lock, Trophy, Shield, User, Calendar, Ticket, MapPin, BarChart3 } from 'lucide-react';
-import { CrudAction, CRUD_ACTIONS, PermissionMatrixMap, RESOURCE_CATEGORIES, ResourceItem } from '../domain/roleModels';
+import React from 'react';
+import { PermissionMatrixMap } from '../domain/roleModels';
 
 interface RoleMatrixCategoryTableProps {
   matrix: PermissionMatrixMap;
-  onToggleCell: (resourceKey: string, action: CrudAction) => void;
+  onToggleCell: (modelKey: string, method: string, permissionId: number) => void;
   disabled?: boolean;
 }
-
-const getIcon = (iconName: string) => {
-  switch (iconName) {
-    case 'Users': return Users;
-    case 'KeyRound': return KeyRound;
-    case 'Lock': return Lock;
-    case 'Trophy': return Trophy;
-    case 'Shield': return Shield;
-    case 'User': return User;
-    case 'Calendar': return Calendar;
-    case 'Ticket': return Ticket;
-    case 'MapPin': return MapPin;
-    default: return BarChart3;
-  }
-};
 
 export const RoleMatrixCategoryTable: React.FC<RoleMatrixCategoryTableProps> = ({
   matrix,
   onToggleCell,
   disabled,
 }) => {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const models = Object.keys(matrix).sort((a, b) => {
+    const labelA = matrix[a]?.GET?.[0]?.model || a;
+    const labelB = matrix[b]?.GET?.[0]?.model || b;
+    return labelA.localeCompare(labelB);
+  });
 
-  const toggleCategory = (catId: string) => {
-    setCollapsed((prev) => ({ ...prev, [catId]: !prev[catId] }));
-  };
+  const methodSet = new Set<string>();
+  Object.values(matrix).forEach((methods) => {
+    Object.keys(methods).forEach((method) => methodSet.add(method));
+  });
+  const methodOrder = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+  const methods = Array.from(methodSet).sort((a, b) => {
+    const indexA = methodOrder.indexOf(a);
+    const indexB = methodOrder.indexOf(b);
+    if (indexA >= 0 || indexB >= 0) return (indexA < 0 ? 999 : indexA) - (indexB < 0 ? 999 : indexB);
+    return a.localeCompare(b);
+  });
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="p-4 border-b border-slate-200 bg-slate-50/70">
         <h2 className="text-sm font-bold text-slate-800">Matriz de permisos del rol</h2>
+        <p className="text-[11px] text-slate-500 mt-1">Permisos existentes agrupados por modelo y método HTTP.</p>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[720px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-              <th className="py-2.5 px-4 w-1/3">Recurso</th>
-              {CRUD_ACTIONS.map((a) => (
-                <th key={a.key} className="py-2.5 px-3 text-center">{a.label}</th>
+              <th className="py-2.5 px-4 w-1/4">Modelo / recurso</th>
+              {methods.map((method) => (
+                <th key={method} className="py-2.5 px-3 text-center">{method}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
-            {RESOURCE_CATEGORIES.map((cat) => {
-              const isCollapsed = Boolean(collapsed[cat.id]);
+            {models.length === 0 ? (
+              <tr>
+                <td colSpan={methods.length + 1} className="py-8 px-4 text-center text-slate-500">
+                  No hay permisos registrados en el catálogo.
+                </td>
+              </tr>
+            ) : models.map((modelKey) => {
+              const entries = Object.values(matrix[modelKey]).flatMap((items) => items || []);
+              const displayName = entries[0]?.model || modelKey;
+
               return (
-                <React.Fragment key={cat.id}>
-                  <tr
-                    onClick={() => toggleCategory(cat.id)}
-                    className="bg-slate-100/60 font-bold text-slate-700 cursor-pointer hover:bg-slate-100 select-none"
-                  >
-                    <td colSpan={6} className="py-2 px-4">
-                      <div className="flex items-center gap-1.5">
-                        {isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                        <span className="text-xs uppercase tracking-wider text-slate-600">{cat.name}</span>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {!isCollapsed &&
-                    cat.resources.map((item: ResourceItem) => {
-                      const Icon = getIcon(item.iconName);
-                      const rowVals = matrix[item.key] || ({} as Record<CrudAction, boolean>);
-                      return (
-                        <tr key={item.key} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 pl-7">
-                            <div className="flex items-center gap-2.5">
-                              <Icon className="h-4 w-4 text-slate-500 shrink-0" />
-                              <span className="font-medium text-slate-800">{item.label}</span>
-                            </div>
-                          </td>
-
-                          {CRUD_ACTIONS.map((a) => (
-                            <td key={a.key} className="py-3 px-3 text-center">
-                              <label className="inline-flex items-center justify-center cursor-pointer p-1 rounded hover:bg-slate-100">
+                <tr key={modelKey} className="hover:bg-slate-50/60 align-top">
+                  <td className="py-3 px-4 font-semibold text-slate-800">
+                    {displayName}
+                  </td>
+                  {methods.map((method) => {
+                    const permissionEntries = matrix[modelKey]?.[method] || [];
+                    return (
+                      <td key={method} className="py-3 px-3">
+                        {permissionEntries.length === 0 ? (
+                          <span className="block text-center text-slate-300">—</span>
+                        ) : (
+                          <div className="flex flex-col gap-2 min-w-[140px]">
+                            {permissionEntries.map((entry) => (
+                              <label
+                                key={entry.id}
+                                className="flex items-start gap-2 rounded-md border border-slate-200 px-2 py-1.5 hover:bg-white cursor-pointer"
+                                title={entry.url}
+                              >
                                 <input
                                   type="checkbox"
-                                  checked={Boolean(rowVals[a.key])}
+                                  checked={entry.assigned}
                                   disabled={disabled}
-                                  onChange={() => onToggleCell(item.key, a.key)}
-                                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                                  onChange={() => onToggleCell(modelKey, method, entry.id)}
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                                 />
+                                <span className="break-all text-[10px] leading-4 text-slate-700">{entry.url}</span>
                               </label>
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                </React.Fragment>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
               );
             })}
           </tbody>
