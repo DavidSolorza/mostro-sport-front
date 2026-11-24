@@ -23,11 +23,11 @@ export const JugadoresCapaTactico: React.FC<Props> = ({ jugadores, balon, mostra
       )}
 
       {/* Capa de Jugadores */}
-      {jugadores.map((j) => {
+      {jugadores.map((j, idx) => {
         const esLocal = j.equipo === 'LOCAL';
         return (
           <div
-            key={j.id}
+            key={`${j.equipo}-${j.id}-${idx}`}
             style={{ left: `${j.x}%`, top: `${j.y}%` }}
             className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer transition-all duration-500 ease-out z-10"
           >

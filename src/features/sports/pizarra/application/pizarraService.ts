@@ -27,7 +27,7 @@ export const dePorcentajeAApi = (v: number): number =>
 function mapearPlantilla(lista: EquipoJugadorApi[], equipo: 'LOCAL' | 'VISITANTE', base: JugadorTactico[]): JugadorTactico[] {
   const slots = base.filter((b) => b.equipo === equipo);
   if (!lista.length) return slots;
-  return lista.slice(0, 11).map((item, idx) => {
+  const plantilla = lista.slice(0, 11).map((item, idx) => {
     const j = item.jugador;
     const id = Number(j?.id ?? j?.id_jugador ?? item.jugadorId ?? item.id_jugador ?? slots[idx % slots.length].id);
     const slot = slots[idx % slots.length];
@@ -42,6 +42,8 @@ function mapearPlantilla(lista: EquipoJugadorApi[], equipo: 'LOCAL' | 'VISITANTE
       posicion: slot.posicion,
     };
   });
+  // Evita ids repetidos dentro de la plantilla (provocaban keys duplicadas en la pizarra).
+  return plantilla.filter((j, i) => plantilla.findIndex((o) => o.id === j.id) === i);
 }
 
 export const pizarraService = {

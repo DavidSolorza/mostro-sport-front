@@ -40,6 +40,7 @@ export const ApuestasPage: React.FC = () => {
 
   useEffect(() => { fetchApuestas(page); }, [page, fetchApuestas]);
 
+  // Si falla, el error se propaga al modal (que lo muestra y no se cierra).
   const handleCrear = async (dto: CreateApuestaDto) => {
     await apuestasService.crearApuesta(dto);
     setPage(FIRST_PAGE);
@@ -48,8 +49,12 @@ export const ApuestasPage: React.FC = () => {
 
   const handleCancelar = async (id: number) => {
     if (!confirm('¿Seguro que deseas cancelar esta apuesta?')) return;
-    await apuestasService.cancelarApuesta(id);
-    await fetchApuestas(page);
+    try {
+      await apuestasService.cancelarApuesta(id);
+      await fetchApuestas(page);
+    } catch (err) {
+      setError(toUserMessage(err));
+    }
   };
 
   return (

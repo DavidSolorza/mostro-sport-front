@@ -5,27 +5,38 @@ import { TablaPosicionesView } from './TablaPosicionesView';
 import { stubsService } from '../../stubs/application/stubsService';
 import { TorneoOption } from '../../stubs/domain/stubModels';
 import { BarChart3 } from 'lucide-react';
+import { toUserMessage } from '../../shared/errorMessage';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 
 export const TorneoDesarrolloPage: React.FC = () => {
   const [torneos, setTorneos] = useState<TorneoOption[]>([]);
   const [selectedTorneoId, setSelectedTorneoId] = useState<number>(0);
   const [data, setData] = useState<DesarrolloTorneo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    stubsService.getTorneos().then((t) => {
-      setTorneos(t);
-      if (t.length > 0) setSelectedTorneoId(t[0].id_torneo);
-    });
+    stubsService
+      .getTorneos()
+      .then((t) => {
+        setTorneos(t);
+        if (t.length > 0) setSelectedTorneoId(t[0].id_torneo);
+      })
+      .catch((err) => setError(toUserMessage(err)));
   }, []);
 
   useEffect(() => {
     if (!selectedTorneoId) return;
     setLoading(true);
-    desarrolloService.getDesarrolloTorneo(selectedTorneoId).then((res) => {
-      setData(res);
-      setLoading(false);
-    });
+    setError(null);
+    desarrolloService
+      .getDesarrolloTorneo(selectedTorneoId)
+      .then((res) => setData(res))
+      .catch((err) => {
+        setData(null);
+        setError(toUserMessage(err));
+      })
+      .finally(() => setLoading(false));
   }, [selectedTorneoId]);
 
   return (
@@ -52,6 +63,8 @@ export const TorneoDesarrolloPage: React.FC = () => {
           </select>
         </div>
       </div>
+
+      <ErrorBanner message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <div className="text-center py-12 text-slate-400 text-xs">Cargando desarrollo del torneo...</div>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { AsignarHabilidadDto } from '../domain/habilidadModels';
 import { stubsService } from '../../stubs/application/stubsService';
 import { HabilidadOption } from '../../stubs/domain/stubModels';
-import { X, Award } from 'lucide-react';
+import { X, Award, AlertCircle } from 'lucide-react';
+import { toUserMessage } from '../../shared/errorMessage';
 
 interface Props {
   isOpen: boolean;
@@ -15,13 +16,17 @@ export const AsignarHabilidadModal: React.FC<Props> = ({ isOpen, onClose, onSubm
   const [habilidades, setHabilidades] = useState<HabilidadOption[]>([]);
   const [idHabilidad, setIdHabilidad] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    stubsService.getHabilidades().then((res) => {
-      setHabilidades(res);
-      if (res.length > 0) setIdHabilidad(res[0].id_habilidad);
-    });
+    stubsService
+      .getHabilidades()
+      .then((res) => {
+        setHabilidades(res);
+        if (res.length > 0) setIdHabilidad(res[0].id_habilidad);
+      })
+      .catch((err) => setFormError(toUserMessage(err)));
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -29,12 +34,15 @@ export const AsignarHabilidadModal: React.FC<Props> = ({ isOpen, onClose, onSubm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setFormError(null);
     try {
       await onSubmit({
         id_jugador: Number(jugadorId),
         id_habilidad: Number(idHabilidad),
       });
       onClose();
+    } catch (err) {
+      setFormError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -61,6 +69,12 @@ export const AsignarHabilidadModal: React.FC<Props> = ({ isOpen, onClose, onSubm
               ))}
             </select>
           </div>
+          {formError && (
+            <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 flex items-start gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button type="submit" disabled={loading} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">

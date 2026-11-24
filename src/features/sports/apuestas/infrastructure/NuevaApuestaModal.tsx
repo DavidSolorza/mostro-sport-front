@@ -7,6 +7,7 @@ import { Partido } from '../../partidos/domain/partidoModels';
 import { partidosService } from '../../partidos/application/partidosService';
 import { X, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 import { SelectorEquipoApuesta } from './SelectorEquipoApuesta';
+import { toUserMessage } from '../../shared/errorMessage';
 
 interface Props {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
   const [equipoId, setEquipoId] = useState<number>(0);
   const [cuota, setCuota] = useState<number>(1.85);
   const [loading, setLoading] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const seleccionarPartido = (p?: Partido) => {
     setPartidoId(p?.id_partido ?? 0);
@@ -42,18 +44,25 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
       setMetodos(userMetodos);
       if (disponibles.length > 0) {
         seleccionarPartido(disponibles[0]);
-        apuestasService.getCuotaPartido(disponibles[0].id_partido).then((c) => setCuota(c.cuota));
+        apuestasService
+          .getCuotaPartido(disponibles[0].id_partido)
+          .then((c) => setCuota(c.cuota))
+          .catch((err) => setFormError(toUserMessage(err)));
       }
       if (userMetodos.length > 0) {
         setMetodoId(userMetodos[0].id_metodo_aficionado);
       }
-    });
+    }).catch((err) => setFormError(toUserMessage(err)));
   }, [isOpen, aficionadoId]);
 
   const handlePartidoChange = async (id: number) => {
     seleccionarPartido(partidos.find((p) => p.id_partido === id));
-    const c = await apuestasService.getCuotaPartido(id);
-    setCuota(c.cuota);
+    try {
+      const c = await apuestasService.getCuotaPartido(id);
+      setCuota(c.cuota);
+    } catch (err) {
+      setFormError(toUserMessage(err));
+    }
   };
 
   if (!isOpen) return null;
@@ -62,6 +71,7 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
     e.preventDefault();
     if (!metodoId || !equipoId) return;
     setLoading(true);
+    setFormError(null);
     try {
       await onSubmit({
         monto: Number(monto),
@@ -71,6 +81,8 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
         id_equipo: equipoId,
       });
       onClose();
+    } catch (err) {
+      setFormError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -135,6 +147,12 @@ export const NuevaApuestaModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
             <span>Ganancia Estimada:</span>
             <span className="font-bold text-emerald-600">${gananciaEstimada}</span>
           </div>
+          {formError && (
+            <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 flex items-start gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button type="submit" disabled={loading || metodos.length === 0 || !equipoId} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">
