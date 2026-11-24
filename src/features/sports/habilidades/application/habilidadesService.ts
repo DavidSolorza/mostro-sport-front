@@ -11,33 +11,37 @@ export function normalizarHabilidadJugador(raw: HabilidadJugadorRaw, jugadorIdFa
     id_habilidad,
     nivel: raw.nivel ?? null,
     habilidad: nombre
-      ? {
-          id_habilidad,
-          nombre,
-          descripcion: raw.habilidad?.descripcion ?? raw.habilidadDescripcion,
-        }
+      ? { id_habilidad, nombre, descripcion: raw.habilidad?.descripcion ?? raw.habilidadDescripcion }
       : undefined,
   };
 }
 
+export interface HabilidadCatalogo {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+}
+
 export const habilidadesService = {
+  async getCatalogo(): Promise<HabilidadCatalogo[]> {
+    const res = await sportsHttpClient.get<HabilidadCatalogo[] | Page<HabilidadCatalogo>>('/habilidades');
+    return asArray(res);
+  },
+
   async getHabilidadesPorJugador(jugadorId: number): Promise<HabilidadJugador[]> {
-    const res = await sportsHttpClient.get<HabilidadJugadorRaw[] | Page<HabilidadJugadorRaw>>(
-      `/habilidades-jugador/${jugadorId}`
-    );
-    return asArray(res)
-      .map((r) => normalizarHabilidadJugador(r, jugadorId))
-      .filter((h) => h.id_habilidad > 0);
+    const res = await sportsHttpClient.get<HabilidadJugadorRaw[] | Page<HabilidadJugadorRaw>>(`/jugadores/${jugadorId}/habilidades`);
+    return asArray(res).map((r) => normalizarHabilidadJugador(r, jugadorId)).filter((h) => h.id_habilidad > 0);
   },
 
   async asignarHabilidad(dto: AsignarHabilidadDto): Promise<HabilidadJugador> {
-    const payload: AsignarHabilidadDto = { jugadorId: dto.jugadorId, habilidadId: dto.habilidadId };
-    if (dto.nivel !== undefined) payload.nivel = dto.nivel;
-    const res = await sportsHttpClient.post<HabilidadJugadorRaw>('/habilidades-jugador', payload);
+    const res = await sportsHttpClient.post<HabilidadJugadorRaw>(
+      `/jugadores/${dto.jugadorId}/habilidades/${dto.habilidadId}`,
+      {},
+    );
     return normalizarHabilidadJugador(res ?? {}, dto.jugadorId);
   },
 
   async eliminarHabilidad(jugadorId: number, habilidadId: number): Promise<void> {
-    return sportsHttpClient.delete(`/habilidades-jugador/${jugadorId}/${habilidadId}`);
+    return sportsHttpClient.delete(`/jugadores/${jugadorId}/habilidades/${habilidadId}`);
   },
 };

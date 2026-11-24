@@ -1,17 +1,23 @@
 import { httpClient } from '../../../core/http/httpClient';
+import { HttpError } from '../../../core/errors/HttpError';
 import { CreateProfileDTO, ProfileResponseDTO, UpdateProfileDTO } from '../domain/profileModels';
 
 export const profileApiService = {
   async getProfile(userId: number): Promise<ProfileResponseDTO | null> {
     try {
       return await httpClient.get<ProfileResponseDTO>(`/users/${userId}/profile`);
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        localStorage.removeItem(`ms_profile_${userId}`);
+        return null;
+      }
+
       const stored = localStorage.getItem(`ms_profile_${userId}`);
       if (stored) {
         try {
           return JSON.parse(stored) as ProfileResponseDTO;
         } catch {
-          // Fallback
+          localStorage.removeItem(`ms_profile_${userId}`);
         }
       }
       return null;
@@ -23,21 +29,15 @@ export const profileApiService = {
     data: CreateProfileDTO | UpdateProfileDTO,
     isExisting: boolean
   ): Promise<ProfileResponseDTO> {
-    try {
-      if (isExisting) {
-        return await httpClient.put<ProfileResponseDTO>(`/users/${userId}/profile`, data);
-      }
-      return await httpClient.post<ProfileResponseDTO>(`/users/${userId}/profile`, data);
-    } catch {
-      const fallback: ProfileResponseDTO = {
-        id: Date.now(),
-        phone: data.phone,
-        birthDate: data.birthDate,
-        photoUrl: data.photoUrl,
-      };
-      localStorage.setItem(`ms_profile_${userId}`, JSON.stringify(fallback));
-      return fallback;
+    if (isExisting) {
+      const updated = await httpClient.put<ProfileResponseDTO>(`/users/${userId}/profile`, data);
+      localStorage.setItem(`ms_profile_${userId}`, JSON.stringify(updated));
+      return updated;
     }
+
+    const created = await httpClient.post<ProfileResponseDTO>(`/users/${userId}/profile`, data);
+    localStorage.setItem(`ms_profile_${userId}`, JSON.stringify(created));
+    return created;
   },
 };
 

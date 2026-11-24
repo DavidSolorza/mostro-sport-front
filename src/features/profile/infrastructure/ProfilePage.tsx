@@ -22,7 +22,7 @@ export const ProfilePage: React.FC = () => {
       if (data) {
         setProfile(data);
         setPhone(data.phone || '');
-        setBirthDate(data.birthDate || '');
+        setBirthDate(data.birthDate ? data.birthDate.slice(0, 10) : '');
         setPhotoUrl(data.photoUrl || '');
       }
     };
@@ -40,7 +40,10 @@ export const ProfilePage: React.FC = () => {
         Boolean(profile)
       );
       setProfile(updated);
-      setFeedback('Perfil actualizado exitosamente.');
+      setFeedback(profile ? 'Perfil actualizado exitosamente.' : 'Perfil creado exitosamente.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible guardar el perfil.';
+      setFeedback(message);
     } finally {
       setSaving(false);
     }

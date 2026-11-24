@@ -1,56 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { aficionadosService } from '../application/aficionadosService';
+import { aficionadosService, MetodoPagoCatalogo } from '../application/aficionadosService';
 import { MetodoPagoAficionado, AficionadoEquipo } from '../domain/aficionadoModels';
 import { MetodosPagoList } from './MetodosPagoList';
 import { EquiposFavoritosList } from './EquiposFavoritosList';
 import { equiposService } from '../../equipos/application/equiposService';
-import { stubsService } from '../../stubs/application/stubsService';
-import { EquipoOption, MetodoPagoCatalogoOption } from '../../stubs/domain/stubModels';
 import { toUserMessage } from '../../shared/errorMessage';
 import { ErrorBanner } from '../../shared/ui/ErrorBanner';
+import { authStorage } from '../../../../core/auth/authStorage';
 import { UserCheck } from 'lucide-react';
+
+interface EquipoOption { id_equipo: number; nombre: string; }
 
 export const AficionadoProfilePage: React.FC = () => {
   const [metodos, setMetodos] = useState<MetodoPagoAficionado[]>([]);
   const [equiposFavs, setEquiposFavs] = useState<AficionadoEquipo[]>([]);
-  const [catalogoMetodos, setCatalogoMetodos] = useState<MetodoPagoCatalogoOption[]>([]);
+  const [catalogoMetodos, setCatalogoMetodos] = useState<MetodoPagoCatalogo[]>([]);
   const [todosEquipos, setTodosEquipos] = useState<EquipoOption[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const aficionadoId = 1;
+  const [aficionadoId, setAficionadoId] = useState<number>(0);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
+      const session = authStorage.getStoredSession();
+      if (!session?.userId) throw new Error('No se encontró la sesión autenticada');
+      const aficionado = await aficionadosService.getAficionadoByUsuarioId(session.userId);
+      const id = Number((aficionado as any).id ?? (aficionado as any).id_aficionado ?? 0);
+      if (!id) throw new Error('El usuario autenticado no tiene un perfil de aficionado');
+      setAficionadoId(id);
       const [m, ef, cm, equiposActivos] = await Promise.all([
-        aficionadosService.getMetodosPago(aficionadoId),
-        aficionadosService.getEquiposFavoritos(aficionadoId),
-        stubsService.getMetodosPago(),
+        aficionadosService.getMetodosPago(id),
+        aficionadosService.getEquiposFavoritos(id),
+        aficionadosService.getCatalogoMetodosPago(),
         equiposService.listarActivos(),
       ]);
-      setMetodos(m);
-      setEquiposFavs(ef);
-      setCatalogoMetodos(cm);
+      setMetodos(m); setEquiposFavs(ef); setCatalogoMetodos(cm);
       setTodosEquipos(equiposActivos.map((eq) => ({ id_equipo: eq.id, nombre: eq.nombre })));
-    } catch (err) {
-      setError(toUserMessage(err));
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(toUserMessage(err)); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
 
   const ejecutar = async (fn: () => Promise<void>) => {
     setError(null);
-    try {
-      await fn();
-      await loadData();
-    } catch (err) {
-      setError(toUserMessage(err));
-    }
+    try { await fn(); await loadData(); } catch (err) { setError(toUserMessage(err)); }
   };
 
   return (
@@ -60,7 +56,7 @@ export const AficionadoProfilePage: React.FC = () => {
           <UserCheck className="w-5 h-5 text-indigo-600" /> Perfil del Aficionado (HU-GC-10)
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          Gestión de billetera, métodos de pago autorizados y seguimiento de equipos favoritos.
+          Gestión de métodos de pago autorizados y seguimiento de equipos favoritos.
         </p>
       </div>
 
@@ -72,11 +68,11 @@ export const AficionadoProfilePage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <MetodosPagoList
             metodos={metodos}
-            catalogo={catalogoMetodos}
+            catalogo={catalogoMetodos as any}
             onAgregar={(idMetodoPago, referencia) =>
-              ejecutar(() => aficionadosService.asociarMetodoPago({ id_aficionado: aficionadoId, id_metodo_pago: idMetodoPago, referencia }).then(() => undefined))
+              ejecutar(() => aficionadosService.asociarMetodoPago(aficionadoId, { metodoPagoId: idMetodoPago, referencia }).then(() => undefined))
             }
-            onEliminar={(id) => ejecutar(() => aficionadosService.eliminarMetodoPago(id))}
+            onEliminar={(id) => ejecutar(() => aficionadosService.eliminarMetodoPago(aficionadoId, id))}
           />
           <EquiposFavoritosList
             equiposFavoritos={equiposFavs}

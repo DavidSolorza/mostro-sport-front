@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { habilidadesService } from '../application/habilidadesService';
+import { jugadoresService } from '../../jugadores/application/jugadoresService';
 import { HabilidadJugador, AsignarHabilidadDto } from '../domain/habilidadModels';
-import { stubsService } from '../../stubs/application/stubsService';
-import { JugadorOption } from '../../stubs/domain/stubModels';
 import { AsignarHabilidadModal } from './AsignarHabilidadModal';
 import { Award, Plus, Trash2 } from 'lucide-react';
 import { toUserMessage } from '../../shared/errorMessage';
 import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 
 export const HabilidadesJugadorPage: React.FC = () => {
-  const [jugadores, setJugadores] = useState<JugadorOption[]>([]);
+  const [jugadores, setJugadores] = useState<{ id: number; nombre: string; apellido?: string | null }[]>([]);
   const [selectedJugadorId, setSelectedJugadorId] = useState<number>(0);
   const [habilidades, setHabilidades] = useState<HabilidadJugador[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -17,11 +16,11 @@ export const HabilidadesJugadorPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    stubsService
-      .getJugadores()
+    jugadoresService
+      .listarActivos()
       .then((res) => {
         setJugadores(res);
-        if (res.length > 0) setSelectedJugadorId(res[0].id_jugador);
+        if (res.length > 0) setSelectedJugadorId(res[0].id);
       })
       .catch((err) => setError(toUserMessage(err)));
   }, []);
@@ -31,8 +30,7 @@ export const HabilidadesJugadorPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await habilidadesService.getHabilidadesPorJugador(jugadorId);
-      setHabilidades(data);
+      setHabilidades(await habilidadesService.getHabilidadesPorJugador(jugadorId));
     } catch (err) {
       setHabilidades([]);
       setError(toUserMessage(err));
@@ -45,7 +43,6 @@ export const HabilidadesJugadorPage: React.FC = () => {
     if (selectedJugadorId) fetchHabilidades(selectedJugadorId);
   }, [selectedJugadorId]);
 
-  // Si falla, el error se propaga al modal (que lo muestra y no se cierra).
   const handleAsignar = async (dto: AsignarHabilidadDto) => {
     await habilidadesService.asignarHabilidad(dto);
     if (selectedJugadorId) await fetchHabilidades(selectedJugadorId);
@@ -66,7 +63,7 @@ export const HabilidadesJugadorPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Award className="w-5 h-5 text-indigo-600" /> Habilidades de Jugadores (HU-GD-07)
+            <Award className="w-5 h-5 text-indigo-600" /> Habilidades de Jugadores (HU-GD-06)
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Asignación y desvinculación de competencias técnicas por jugador.
@@ -90,8 +87,8 @@ export const HabilidadesJugadorPage: React.FC = () => {
           className="border rounded-lg p-2 text-xs font-medium flex-1 max-w-md"
         >
           {jugadores.map((j) => (
-            <option key={j.id_jugador} value={j.id_jugador}>
-              {j.nombre} {j.apellido || ''} (ID: {j.id_jugador})
+            <option key={j.id} value={j.id}>
+              {j.nombre} {j.apellido || ''} (ID: {j.id})
             </option>
           ))}
         </select>

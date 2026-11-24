@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AficionadoEquipo } from '../domain/aficionadoModels';
-import { EquipoOption } from '../../stubs/domain/stubModels';
 import { Heart, Plus, Trash2 } from 'lucide-react';
+
+interface EquipoOption { id_equipo: number; nombre: string; }
 
 interface Props {
   equiposFavoritos: AficionadoEquipo[];
