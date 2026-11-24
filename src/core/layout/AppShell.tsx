@@ -14,7 +14,7 @@ export const AppShell: React.FC = () => {
     navigate('/login');
   };
 
-  const currentSection = NAV_ITEMS.flatMap((g) => g.items).find((i) => i.to === location.pathname)?.label || 'Panel Principal';
+  const currentSection = NAV_ITEMS.flatMap((g) => g.items).find((i) => location.pathname === i.to || location.pathname.startsWith(`${i.to}/`))?.label || 'Panel Principal';
 
   return (
     <div className="min-h-screen flex bg-slate-100">

@@ -19,6 +19,13 @@ class SportsHttpClient {
     });
   }
 
+  public async put<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   public async patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, {
       method: 'PATCH',
@@ -57,8 +64,9 @@ class SportsHttpClient {
     const data: unknown = text ? this.safeParseJson(text) : null;
 
     if (!response.ok) {
-      const err = (data && typeof data === 'object') ? data as { message?: string } : {};
-      const msg = err.message || `Error ${response.status} en Sports API`;
+      const err = (data && typeof data === 'object') ? data as { message?: string | string[] } : {};
+      const raw = Array.isArray(err.message) ? err.message.join(' · ') : err.message;
+      const msg = raw || `Error ${response.status} en Sports API`;
       throw new HttpError(response.status, msg, 'SPORTS_API_ERROR');
     }
 
