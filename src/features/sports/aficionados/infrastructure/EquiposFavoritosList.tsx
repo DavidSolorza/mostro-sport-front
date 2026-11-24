@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AficionadoEquipo } from '../domain/aficionadoModels';
 import { EquipoOption } from '../../stubs/domain/stubModels';
 import { Heart, Plus, Trash2 } from 'lucide-react';
@@ -16,8 +16,14 @@ export const EquiposFavoritosList: React.FC<Props> = ({
   onVincular,
   onDesvincular,
 }) => {
-  const [equipoId, setEquipoId] = useState<number>(todosEquipos[0]?.id_equipo || 1);
+  const [equipoId, setEquipoId] = useState<number>(todosEquipos[0]?.id_equipo || 0);
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (todosEquipos.length > 0 && !todosEquipos.some((e) => e.id_equipo === equipoId)) {
+      setEquipoId(todosEquipos[0].id_equipo);
+    }
+  }, [todosEquipos, equipoId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +52,7 @@ export const EquiposFavoritosList: React.FC<Props> = ({
         </select>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !equipoId}
           className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" /> Seguir

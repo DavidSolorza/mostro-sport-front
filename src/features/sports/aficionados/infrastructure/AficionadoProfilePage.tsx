@@ -3,8 +3,11 @@ import { aficionadosService } from '../application/aficionadosService';
 import { MetodoPagoAficionado, AficionadoEquipo } from '../domain/aficionadoModels';
 import { MetodosPagoList } from './MetodosPagoList';
 import { EquiposFavoritosList } from './EquiposFavoritosList';
+import { equiposService } from '../../equipos/application/equiposService';
 import { stubsService } from '../../stubs/application/stubsService';
 import { EquipoOption, MetodoPagoCatalogoOption } from '../../stubs/domain/stubModels';
+import { toUserMessage } from '../../shared/errorMessage';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { UserCheck } from 'lucide-react';
 
 export const AficionadoProfilePage: React.FC = () => {
@@ -13,49 +16,41 @@ export const AficionadoProfilePage: React.FC = () => {
   const [catalogoMetodos, setCatalogoMetodos] = useState<MetodoPagoCatalogoOption[]>([]);
   const [todosEquipos, setTodosEquipos] = useState<EquipoOption[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const aficionadoId = 1; // Aficionado de prueba activo
+  const aficionadoId = 1;
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [m, ef, cm, te] = await Promise.all([
+      const [m, ef, cm, equiposActivos] = await Promise.all([
         aficionadosService.getMetodosPago(aficionadoId),
         aficionadosService.getEquiposFavoritos(aficionadoId),
         stubsService.getMetodosPago(),
-        stubsService.getEquipos(),
+        equiposService.listarActivos(),
       ]);
       setMetodos(m);
       setEquiposFavs(ef);
       setCatalogoMetodos(cm);
-      setTodosEquipos(te);
+      setTodosEquipos(equiposActivos.map((eq) => ({ id_equipo: eq.id, nombre: eq.nombre })));
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const handleAgregarMetodo = async (idMetodoPago: number, referencia: string) => {
-    await aficionadosService.asociarMetodoPago({ id_aficionado: aficionadoId, id_metodo_pago: idMetodoPago, referencia });
-    await loadData();
-  };
-
-  const handleEliminarMetodo = async (id: number) => {
-    await aficionadosService.eliminarMetodoPago(id);
-    await loadData();
-  };
-
-  const handleVincularEquipo = async (equipoId: number) => {
-    await aficionadosService.vincularEquipoFavorito({ id_aficionado: aficionadoId, id_equipo: equipoId });
-    await loadData();
-  };
-
-  const handleDesvincularEquipo = async (equipoId: number) => {
-    await aficionadosService.desvincularEquipoFavorito(aficionadoId, equipoId);
-    await loadData();
+  const ejecutar = async (fn: () => Promise<void>) => {
+    setError(null);
+    try {
+      await fn();
+      await loadData();
+    } catch (err) {
+      setError(toUserMessage(err));
+    }
   };
 
   return (
@@ -69,6 +64,8 @@ export const AficionadoProfilePage: React.FC = () => {
         </p>
       </div>
 
+      <ErrorBanner message={error} onClose={() => setError(null)} />
+
       {loading ? (
         <div className="text-center py-12 text-slate-400 text-xs">Cargando perfil de aficionado...</div>
       ) : (
@@ -76,14 +73,18 @@ export const AficionadoProfilePage: React.FC = () => {
           <MetodosPagoList
             metodos={metodos}
             catalogo={catalogoMetodos}
-            onAgregar={handleAgregarMetodo}
-            onEliminar={handleEliminarMetodo}
+            onAgregar={(idMetodoPago, referencia) =>
+              ejecutar(() => aficionadosService.asociarMetodoPago({ id_aficionado: aficionadoId, id_metodo_pago: idMetodoPago, referencia }).then(() => undefined))
+            }
+            onEliminar={(id) => ejecutar(() => aficionadosService.eliminarMetodoPago(id))}
           />
           <EquiposFavoritosList
             equiposFavoritos={equiposFavs}
             todosEquipos={todosEquipos}
-            onVincular={handleVincularEquipo}
-            onDesvincular={handleDesvincularEquipo}
+            onVincular={(equipoId) =>
+              ejecutar(() => aficionadosService.vincularEquipoFavorito({ id_aficionado: aficionadoId, id_equipo: equipoId }).then(() => undefined))
+            }
+            onDesvincular={(equipoId) => ejecutar(() => aficionadosService.desvincularEquipoFavorito(aficionadoId, equipoId))}
           />
         </div>
       )}

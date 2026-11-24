@@ -14,7 +14,63 @@ import {
   RegistrarAnotacionDto,
   FinalizarPartidoDto,
   EstadoPartido,
+  PartidoEquipo,
 } from '../domain/partidoModels';
+
+interface PartidoRaw extends Partial<Partido> {
+  id?: number;
+  fechaHora?: string;
+  torneoId?: number;
+  torneoNombre?: string;
+  faseId?: number;
+  faseNombre?: string;
+  escenarioId?: number;
+  escenarioNombre?: string;
+  equipoLocalId?: number;
+  equipoLocalNombre?: string;
+  equipoVisitanteId?: number;
+  equipoVisitanteNombre?: string;
+  pelotaId?: number;
+}
+
+export function normalizarPartido(raw: PartidoRaw): Partido {
+  const id_partido = Number(raw.id_partido ?? raw.id ?? 0);
+  let partidoEquipos: PartidoEquipo[] | undefined = raw.partidoEquipos;
+  if (!partidoEquipos && (raw.equipoLocalId || raw.equipoVisitanteId)) {
+    partidoEquipos = [];
+    if (raw.equipoLocalId) {
+      partidoEquipos.push({
+        id_partido,
+        id_equipo: Number(raw.equipoLocalId),
+        rol: 'LOCAL',
+        equipo: { id_equipo: Number(raw.equipoLocalId), nombre: raw.equipoLocalNombre || 'Local' },
+      });
+    }
+    if (raw.equipoVisitanteId) {
+      partidoEquipos.push({
+        id_partido,
+        id_equipo: Number(raw.equipoVisitanteId),
+        rol: 'VISITANTE',
+        equipo: { id_equipo: Number(raw.equipoVisitanteId), nombre: raw.equipoVisitanteNombre || 'Visitante' },
+      });
+    }
+  }
+  return {
+    id_partido,
+    fecha_hora: raw.fecha_hora ?? raw.fechaHora ?? '',
+    estado: (raw.estado ?? 'PROGRAMADO') as Partido['estado'],
+    id_torneo: Number(raw.id_torneo ?? raw.torneoId ?? 0),
+    id_fase: raw.id_fase ?? raw.faseId ?? null,
+    id_escenario: Number(raw.id_escenario ?? raw.escenarioId ?? 0),
+    id_pelota: raw.id_pelota ?? raw.pelotaId ?? null,
+    partidoEquipos,
+    anotaciones: raw.anotaciones,
+    escenario: raw.escenario ?? (raw.escenarioNombre ? { id_escenario: Number(raw.escenarioId ?? 0), nombre: raw.escenarioNombre } : undefined),
+    torneo: raw.torneo ?? (raw.torneoNombre ? { id_torneo: Number(raw.torneoId ?? 0), nombre: raw.torneoNombre } : undefined),
+    fase: raw.fase ?? (raw.faseNombre ? { id_fase: Number(raw.faseId ?? 0), nombre: raw.faseNombre } : undefined),
+    pelota: raw.pelota,
+  };
+}
 
 export const partidosService = {
   async getPartidosPage(params: { torneoId?: number; page?: number; size?: number } = {}): Promise<Page<Partido>> {
@@ -23,9 +79,9 @@ export const partidosService = {
       page: params.page ?? FIRST_PAGE,
       size: params.size ?? DEFAULT_PAGE_SIZE,
     });
-    const res = await sportsHttpClient.get<Page<Partido> | Partido[]>(`/partidos${qs}`);
-    if (Array.isArray(res)) return { content: res, totalElements: res.length };
-    return { content: res?.content ?? [], totalElements: res?.totalElements ?? 0 };
+    const res = await sportsHttpClient.get<Page<PartidoRaw> | PartidoRaw[]>(`/partidos${qs}`);
+    if (Array.isArray(res)) return { content: res.map(normalizarPartido), totalElements: res.length };
+    return { content: (res?.content ?? []).map(normalizarPartido), totalElements: res?.totalElements ?? 0 };
   },
 
   async getPartidos(torneoId?: number): Promise<Partido[]> {
@@ -34,32 +90,25 @@ export const partidosService = {
   },
 
   async getPartidoById(id: number): Promise<Partido> {
-    return sportsHttpClient.get<Partido>(`/partidos/${id}`);
+    return normalizarPartido(await sportsHttpClient.get<PartidoRaw>(`/partidos/${id}`));
   },
 
   async crearPartido(dto: CreatePartidoDto): Promise<Partido> {
     const payload = {
       ...dto,
       fechaHora: dto.fechaHora || dto.fecha_hora,
-      fecha_hora: dto.fecha_hora || dto.fechaHora,
       torneoId: dto.torneoId ?? dto.id_torneo,
-      id_torneo: dto.id_torneo ?? dto.torneoId,
       faseId: dto.faseId ?? dto.id_fase,
-      id_fase: dto.id_fase ?? dto.faseId,
       escenarioId: dto.escenarioId ?? dto.id_escenario,
-      id_escenario: dto.id_escenario ?? dto.escenarioId,
       equipoLocalId: dto.equipoLocalId ?? dto.id_equipo_local,
-      id_equipo_local: dto.id_equipo_local ?? dto.equipoLocalId,
       equipoVisitanteId: dto.equipoVisitanteId ?? dto.id_equipo_visitante,
-      id_equipo_visitante: dto.id_equipo_visitante ?? dto.equipoVisitanteId,
       pelotaId: dto.pelotaId ?? dto.id_pelota,
-      id_pelota: dto.id_pelota ?? dto.pelotaId,
     };
-    return sportsHttpClient.post<Partido>('/partidos', payload);
+    return normalizarPartido(await sportsHttpClient.post<PartidoRaw>('/partidos', payload));
   },
 
   async cambiarEstado(id: number, estado: EstadoPartido): Promise<Partido> {
-    return sportsHttpClient.patch<Partido>(`/partidos/${id}/estado`, { estado });
+    return normalizarPartido(await sportsHttpClient.patch<PartidoRaw>(`/partidos/${id}/estado`, { estado }));
   },
 
   async registrarAnotacion(dto: RegistrarAnotacionDto): Promise<Anotacion> {
