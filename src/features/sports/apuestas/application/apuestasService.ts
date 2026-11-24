@@ -1,13 +1,35 @@
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
+import {
+  asArray,
+  buildQuery,
+  DEFAULT_PAGE_SIZE,
+  FIRST_PAGE,
+  Page,
+  SELECT_PAGE_SIZE,
+} from '../../shared/pagination';
 import { Apuesta, CreateApuestaDto } from '../domain/apuestaModels';
 
 export const apuestasService = {
+  async getApuestasPage(params: {
+    aficionadoId?: number;
+    partidoId?: number;
+    page?: number;
+    size?: number;
+  } = {}): Promise<Page<Apuesta>> {
+    const qs = buildQuery({
+      aficionadoId: params.aficionadoId,
+      partidoId: params.partidoId,
+      page: params.page ?? FIRST_PAGE,
+      size: params.size ?? DEFAULT_PAGE_SIZE,
+    });
+    const res = await sportsHttpClient.get<Page<Apuesta> | Apuesta[]>(`/apuestas${qs}`);
+    if (Array.isArray(res)) return { content: res, totalElements: res.length };
+    return { content: res?.content ?? [], totalElements: res?.totalElements ?? 0 };
+  },
+
   async getApuestas(aficionadoId?: number, partidoId?: number): Promise<Apuesta[]> {
-    const params = new URLSearchParams();
-    if (aficionadoId) params.append('aficionadoId', String(aficionadoId));
-    if (partidoId) params.append('partidoId', String(partidoId));
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return sportsHttpClient.get<Apuesta[]>(`/apuestas${query}`);
+    const page = await this.getApuestasPage({ aficionadoId, partidoId, page: FIRST_PAGE, size: SELECT_PAGE_SIZE });
+    return asArray(page);
   },
 
   async crearApuesta(dto: CreateApuestaDto): Promise<Apuesta> {
@@ -26,7 +48,7 @@ export const apuestasService = {
   },
 
   async cancelarApuesta(id: number): Promise<Apuesta> {
-    return sportsHttpClient.patch<Apuesta>(`/apuestas/${id}/cancelar`);
+    return sportsHttpClient.post<Apuesta>(`/apuestas/${id}/cancelar`);
   },
 
   async getCuotaPartido(partidoId: number): Promise<{ cuota: number }> {

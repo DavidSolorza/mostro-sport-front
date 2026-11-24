@@ -3,9 +3,9 @@ export interface JugadorTactico {
   dorsal: number;
   nombre: string;
   equipo: 'LOCAL' | 'VISITANTE';
-  x: number; // 0 a 100 (% ancho)
-  y: number; // 0 a 100 (% alto)
-  posicion?: string; // POR, DEF, MED, DEL
+  x: number; // 0 a 100 (% ancho en pizarra)
+  y: number; // 0 a 100 (% alto en pizarra)
+  posicion?: string;
 }
 
 export interface PelotaPosicion {
@@ -36,6 +36,8 @@ export interface EstadisticasPartido {
   cornersVisitante: number;
 }
 
+export type ModoPizarra = 'EN_VIVO_API' | 'SIMULADOR';
+
 export interface PizarraEstado {
   partidoId: number;
   minutoActual: number;
@@ -43,10 +45,10 @@ export interface PizarraEstado {
   periodo: '1T' | '2T' | 'FIN';
   marcadorLocal: number;
   marcadorVisitante: number;
-  /** Anotaciones oficiales registradas en el backend (el marcador de la simulación es independiente). */
   golesOficiales: number;
   balon: PelotaPosicion;
   jugadores: JugadorTactico[];
   estadisticas: EstadisticasPartido;
   eventos: EventoEnVivo[];
+  ultimaSincronizacion?: string;
 }

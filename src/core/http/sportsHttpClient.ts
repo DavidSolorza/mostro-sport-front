@@ -41,7 +41,6 @@ class SportsHttpClient {
     const token = localStorage.getItem(ENV_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
     const headers = new Headers(options.headers);
     headers.set('Accept', 'application/json');
-    headers.set('x-bypass-security', 'true');
 
     if (options.body) {
       headers.set('Content-Type', 'application/json');
@@ -49,6 +48,8 @@ class SportsHttpClient {
 
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      headers.set('x-bypass-security', 'true');
     }
 
     const response = await fetch(`${this.baseUrl}${path}`, {

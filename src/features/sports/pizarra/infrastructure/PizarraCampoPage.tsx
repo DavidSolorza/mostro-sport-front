@@ -77,6 +77,8 @@ export const PizarraCampoPage: React.FC = () => {
             marcadorLocal={t.pizarra.marcadorLocal}
             marcadorVisitante={t.pizarra.marcadorVisitante}
             golesOficiales={t.pizarra.golesOficiales}
+            modo={t.modo}
+            ultimaSincronizacion={t.pizarra.ultimaSincronizacion}
             minuto={t.pizarra.minutoActual}
             segundo={t.pizarra.segundoActual}
             periodo={t.pizarra.periodo}
@@ -89,8 +91,10 @@ export const PizarraCampoPage: React.FC = () => {
             <JugadoresCapaTactico jugadores={t.pizarra.jugadores} balon={t.pizarra.balon} mostrarGol={t.mostrarGol} />
           </div>
           <ControlesSimulacionBar
+            modo={t.modo}
             simulando={t.simulando}
             velocidad={t.velocidad}
+            onCambiarModo={t.setModo}
             onToggleSimulacion={t.toggleSimulacion}
             onCambiarVelocidad={t.setVelocidad}
             onSimularPase={t.pase}

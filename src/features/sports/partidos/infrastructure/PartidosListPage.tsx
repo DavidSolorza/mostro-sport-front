@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Partido, EstadoPartido, CreatePartidoDto, RegistrarAnotacionDto, FinalizarPartidoDto } from '../domain/partidoModels';
 import { partidosService } from '../application/partidosService';
+import { DEFAULT_PAGE_SIZE, FIRST_PAGE } from '../../shared/pagination';
+import { Pagination } from '../../shared/ui/Pagination';
 import { PartidoCard } from './PartidoCard';
 import { CrearPartidoModal } from './CrearPartidoModal';
 import { RegistrarAnotacionModal } from './RegistrarAnotacionModal';
@@ -9,50 +11,49 @@ import { Plus, Trophy, RefreshCw } from 'lucide-react';
 
 export const PartidosListPage: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(FIRST_PAGE);
   const [loading, setLoading] = useState<boolean>(true);
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
   const [showCrearModal, setShowCrearModal] = useState<boolean>(false);
-  const [selectedPartidoAnotar, setSelectedPartidoAnotar] = useState<Partido | null>(null);
-  const [selectedPartidoFinalizar, setSelectedPartidoFinalizar] = useState<Partido | null>(null);
+  const [selectedAnotar, setSelectedAnotar] = useState<Partido | null>(null);
+  const [selectedFinalizar, setSelectedFinalizar] = useState<Partido | null>(null);
 
-  const fetchPartidos = async () => {
+  const fetchPartidos = useCallback(async (targetPage = page) => {
     setLoading(true);
     try {
-      const data = await partidosService.getPartidos();
-      setPartidos(data);
+      const res = await partidosService.getPartidosPage({ page: targetPage, size: DEFAULT_PAGE_SIZE });
+      setPartidos(res.content);
+      setTotal(res.totalElements);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
-  useEffect(() => {
-    fetchPartidos();
-  }, []);
+  useEffect(() => { fetchPartidos(page); }, [page, fetchPartidos]);
 
   const handleCambiarEstado = async (id: number, estado: EstadoPartido) => {
     await partidosService.cambiarEstado(id, estado);
-    await fetchPartidos();
+    await fetchPartidos(page);
   };
 
-  const handleCrearPartido = async (dto: CreatePartidoDto) => {
+  const handleCrear = async (dto: CreatePartidoDto) => {
     await partidosService.crearPartido(dto);
-    await fetchPartidos();
+    setPage(FIRST_PAGE);
+    await fetchPartidos(FIRST_PAGE);
   };
 
-  const handleRegistrarAnotacion = async (dto: RegistrarAnotacionDto) => {
+  const handleAnotar = async (dto: RegistrarAnotacionDto) => {
     await partidosService.registrarAnotacion(dto);
-    await fetchPartidos();
+    await fetchPartidos(page);
   };
 
-  const handleFinalizarPartido = async (id: number, dto: FinalizarPartidoDto) => {
+  const handleFinalizar = async (id: number, dto: FinalizarPartidoDto) => {
     await partidosService.finalizarPartido(id, dto);
-    await fetchPartidos();
+    await fetchPartidos(page);
   };
 
-  const filtrados = partidos.filter((p) => {
-    if (filtroEstado === 'TODOS') return true;
-    return p.estado === filtroEstado;
-  });
+  const filtrados = partidos.filter((p) => filtroEstado === 'TODOS' || p.estado === filtroEstado);
 
   return (
     <div className="space-y-6">
@@ -64,7 +65,7 @@ export const PartidosListPage: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Programación de encuentros, marcadores en vivo y liquidación.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchPartidos} className="p-2 border rounded-lg hover:bg-slate-50 text-slate-600">
+          <button onClick={() => fetchPartidos(page)} className="p-2 border rounded-lg hover:bg-slate-50 text-slate-600">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
@@ -76,7 +77,7 @@ export const PartidosListPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 pb-2 text-xs font-medium">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2 text-xs font-medium">
         {['TODOS', 'PROGRAMADO', 'EN_CURSO', 'FINALIZADO', 'CANCELADO'].map((st) => (
           <button
             key={st}
@@ -97,22 +98,25 @@ export const PartidosListPage: React.FC = () => {
           No hay partidos en estado {filtroEstado}.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtrados.map((p) => (
-            <PartidoCard
-              key={p.id_partido}
-              partido={p}
-              onCambiarEstado={handleCambiarEstado}
-              onOpenAnotacion={setSelectedPartidoAnotar}
-              onOpenFinalizar={setSelectedPartidoFinalizar}
-            />
-          ))}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtrados.map((p) => (
+              <PartidoCard
+                key={p.id_partido}
+                partido={p}
+                onCambiarEstado={handleCambiarEstado}
+                onOpenAnotacion={setSelectedAnotar}
+                onOpenFinalizar={setSelectedFinalizar}
+              />
+            ))}
+          </div>
+          <Pagination page={page} size={DEFAULT_PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       )}
 
-      <CrearPartidoModal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} onSubmit={handleCrearPartido} />
-      <RegistrarAnotacionModal partido={selectedPartidoAnotar} onClose={() => setSelectedPartidoAnotar(null)} onSubmit={handleRegistrarAnotacion} />
-      <FinalizarPartidoModal partido={selectedPartidoFinalizar} onClose={() => setSelectedPartidoFinalizar(null)} onSubmit={handleFinalizarPartido} />
+      <CrearPartidoModal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} onSubmit={handleCrear} />
+      <RegistrarAnotacionModal onClose={() => setSelectedAnotar(null)} partido={selectedAnotar} onSubmit={handleAnotar} />
+      <FinalizarPartidoModal onClose={() => setSelectedFinalizar(null)} partido={selectedFinalizar} onSubmit={handleFinalizar} />
     </div>
   );
 };

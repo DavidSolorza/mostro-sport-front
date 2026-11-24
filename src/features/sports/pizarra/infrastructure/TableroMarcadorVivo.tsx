@@ -7,6 +7,8 @@ interface Props {
   marcadorLocal: number;
   marcadorVisitante: number;
   golesOficiales?: number;
+  modo?: 'EN_VIVO_API' | 'SIMULADOR';
+  ultimaSincronizacion?: string;
   minuto: number;
   segundo: number;
   periodo: string;
@@ -21,6 +23,8 @@ export const TableroMarcadorVivo: React.FC<Props> = ({
   marcadorLocal,
   marcadorVisitante,
   golesOficiales = 0,
+  modo = 'EN_VIVO_API',
+  ultimaSincronizacion,
   minuto,
   segundo,
   periodo,
@@ -87,7 +91,8 @@ export const TableroMarcadorVivo: React.FC<Props> = ({
             </span>
           </div>
           <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-amber-400">
-            Simulación · Goles oficiales: {golesOficiales}
+            {modo === 'EN_VIVO_API' ? 'En Vivo (API)' : 'Simulador'} · Goles oficiales: {golesOficiales}
+            {ultimaSincronizacion ? ` · ${ultimaSincronizacion}` : ''}
           </span>
         </div>
 

@@ -1,38 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Apuesta, CreateApuestaDto } from '../domain/apuestaModels';
 import { apuestasService } from '../application/apuestasService';
+import { DEFAULT_PAGE_SIZE, FIRST_PAGE } from '../../shared/pagination';
+import { Pagination } from '../../shared/ui/Pagination';
 import { NuevaApuestaModal } from './NuevaApuestaModal';
 import { Coins, Plus } from 'lucide-react';
 
+const badgeEstado = (estado: string) => {
+  if (estado === 'GANADA') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (estado === 'PERDIDA') return 'bg-rose-100 text-rose-800 border-rose-200';
+  if (estado === 'CANCELADA' || estado === 'ANULADA') return 'bg-slate-100 text-slate-600 border-slate-300';
+  return 'bg-amber-100 text-amber-800 border-amber-200';
+};
+
 export const ApuestasPage: React.FC = () => {
   const [apuestas, setApuestas] = useState<Apuesta[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(FIRST_PAGE);
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const aficionadoIdFijo = 1; // Aficionado activo por defecto
+  const aficionadoIdFijo = 1;
 
-  const fetchApuestas = async () => {
+  const fetchApuestas = useCallback(async (targetPage = page) => {
     setLoading(true);
     try {
-      const data = await apuestasService.getApuestas();
-      setApuestas(data);
+      const res = await apuestasService.getApuestasPage({ page: targetPage, size: DEFAULT_PAGE_SIZE });
+      setApuestas(res.content);
+      setTotal(res.totalElements);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
-  useEffect(() => {
-    fetchApuestas();
-  }, []);
+  useEffect(() => { fetchApuestas(page); }, [page, fetchApuestas]);
 
-  const handleCrearApuesta = async (dto: CreateApuestaDto) => {
+  const handleCrear = async (dto: CreateApuestaDto) => {
     await apuestasService.crearApuesta(dto);
-    await fetchApuestas();
+    setPage(FIRST_PAGE);
+    await fetchApuestas(FIRST_PAGE);
   };
 
   const handleCancelar = async (id: number) => {
     if (!confirm('¿Seguro que deseas cancelar esta apuesta?')) return;
     await apuestasService.cancelarApuesta(id);
-    await fetchApuestas();
+    await fetchApuestas(page);
   };
 
   return (
@@ -61,62 +72,56 @@ export const ApuestasPage: React.FC = () => {
           No hay apuestas registradas en el sistema.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 text-slate-700 font-semibold border-b">
-              <tr>
-                <th className="py-3 px-4">ID</th>
-                <th className="py-3 px-4">Partido</th>
-                <th className="py-3 px-4">Aficionado</th>
-                <th className="py-3 px-4 text-right">Monto</th>
-                <th className="py-3 px-4 text-center">Estado</th>
-                <th className="py-3 px-4 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {apuestas.map((ap) => {
-                const local = ap.partido?.partidoEquipos?.find((p) => p.rol === 'LOCAL')?.equipo?.nombre || 'Local';
-                const vis = ap.partido?.partidoEquipos?.find((p) => p.rol === 'VISITANTE')?.equipo?.nombre || 'Vis';
-                return (
-                  <tr key={ap.id_apuesta} className="hover:bg-slate-50">
-                    <td className="py-3 px-4 font-bold text-slate-500">#{ap.id_apuesta}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-800">{local} vs {vis}</td>
-                    <td className="py-3 px-4 text-slate-600">{ap.aficionado?.nombre || `Aficionado #${ap.id_aficionado}`}</td>
-                    <td className="py-3 px-4 text-right font-extrabold text-indigo-600">${Number(ap.monto).toFixed(2)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        ap.estado === 'GANADA' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                        ap.estado === 'PERDIDA' ? 'bg-rose-100 text-rose-800 border-rose-200' :
-                        ap.estado === 'CANCELADA' ? 'bg-slate-100 text-slate-600 border-slate-300' :
-                        'bg-amber-100 text-amber-800 border-amber-200'
-                      }`}>
-                        {ap.estado}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {ap.estado === 'PENDIENTE' && (
-                        <button
-                          onClick={() => handleCancelar(ap.id_apuesta)}
-                          className="text-rose-600 hover:text-rose-800 text-[11px] font-bold underline"
-                        >
-                          Cancelar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-700 font-semibold border-b">
+                <tr>
+                  <th className="py-3 px-4">ID</th>
+                  <th className="py-3 px-4">Partido</th>
+                  <th className="py-3 px-4">Aficionado</th>
+                  <th className="py-3 px-4 text-right">Monto</th>
+                  <th className="py-3 px-4 text-center">Estado</th>
+                  <th className="py-3 px-4 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {apuestas.map((ap) => {
+                  const local = ap.partido?.partidoEquipos?.find((p) => p.rol === 'LOCAL')?.equipo?.nombre || 'Local';
+                  const vis = ap.partido?.partidoEquipos?.find((p) => p.rol === 'VISITANTE')?.equipo?.nombre || 'Vis';
+                  const cancelable = ap.estado === 'REGISTRADA' || ap.estado === 'PENDIENTE';
+                  return (
+                    <tr key={ap.id_apuesta} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-bold text-slate-500">#{ap.id_apuesta}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-800">{local} vs {vis}</td>
+                      <td className="py-3 px-4 text-slate-600">{ap.aficionado?.nombre || `Aficionado #${ap.id_aficionado}`}</td>
+                      <td className="py-3 px-4 text-right font-extrabold text-indigo-600">${Number(ap.monto).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${badgeEstado(ap.estado)}`}>
+                          {ap.estado}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {cancelable && (
+                          <button
+                            onClick={() => handleCancelar(ap.id_apuesta)}
+                            className="text-rose-600 hover:text-rose-800 text-[11px] font-bold underline"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} size={DEFAULT_PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       )}
 
-      <NuevaApuestaModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSubmit={handleCrearApuesta}
-        aficionadoId={aficionadoIdFijo}
-      />
+      <NuevaApuestaModal isOpen={showModal} onClose={() => setShowModal(false)} onSubmit={handleCrear} aficionadoId={aficionadoIdFijo} />
     </div>
   );
 };

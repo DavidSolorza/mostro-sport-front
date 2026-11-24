@@ -1,5 +1,13 @@
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
 import {
+  asArray,
+  buildQuery,
+  DEFAULT_PAGE_SIZE,
+  FIRST_PAGE,
+  Page,
+  SELECT_PAGE_SIZE,
+} from '../../shared/pagination';
+import {
   Partido,
   CreatePartidoDto,
   Anotacion,
@@ -9,9 +17,20 @@ import {
 } from '../domain/partidoModels';
 
 export const partidosService = {
+  async getPartidosPage(params: { torneoId?: number; page?: number; size?: number } = {}): Promise<Page<Partido>> {
+    const qs = buildQuery({
+      torneoId: params.torneoId,
+      page: params.page ?? FIRST_PAGE,
+      size: params.size ?? DEFAULT_PAGE_SIZE,
+    });
+    const res = await sportsHttpClient.get<Page<Partido> | Partido[]>(`/partidos${qs}`);
+    if (Array.isArray(res)) return { content: res, totalElements: res.length };
+    return { content: res?.content ?? [], totalElements: res?.totalElements ?? 0 };
+  },
+
   async getPartidos(torneoId?: number): Promise<Partido[]> {
-    const query = torneoId ? `?torneoId=${torneoId}` : '';
-    return sportsHttpClient.get<Partido[]>(`/partidos${query}`);
+    const page = await this.getPartidosPage({ torneoId, page: FIRST_PAGE, size: SELECT_PAGE_SIZE });
+    return asArray(page);
   },
 
   async getPartidoById(id: number): Promise<Partido> {
@@ -48,10 +67,10 @@ export const partidosService = {
   },
 
   async getAnotaciones(partidoId: number): Promise<Anotacion[]> {
-    return sportsHttpClient.get<Anotacion[]>(`/anotaciones/partido/${partidoId}`);
+    return sportsHttpClient.get<Anotacion[]>(`/partidos/${partidoId}/anotaciones`);
   },
 
   async finalizarPartido(id: number, dto: FinalizarPartidoDto): Promise<unknown> {
-    return sportsHttpClient.post(`/partidos/${id}/finalizar`, dto);
+    return sportsHttpClient.put(`/partidos/${id}/resultado`, dto);
   },
 };
