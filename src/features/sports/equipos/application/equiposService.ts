@@ -1,3 +1,4 @@
+import { fromJoin } from '../../shared/joinRows';
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
 import { asArray, buildQuery, FIRST_PAGE, Page, PageQuery, SELECT_PAGE_SIZE } from '../../shared/pagination';
 import { Deporte } from '../../deportes/domain/deporteModels';
@@ -45,7 +46,7 @@ export const equiposService = {
 
   // Equipo-Deporte (HU-GD-03)
   async deportesDeEquipo(equipoId: number): Promise<Deporte[]> {
-    return asArray(await sportsHttpClient.get<Deporte[] | Page<Deporte>>(`/equipos/${equipoId}/deportes`));
+    return fromJoin<Deporte>(asArray(await sportsHttpClient.get<unknown[] | Page<unknown>>(`/equipos/${equipoId}/deportes`)), 'deporte');
   },
 
   asociarDeporte(equipoId: number, deporteId: number): Promise<void> {

@@ -1,5 +1,6 @@
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
 import { asArray, buildQuery, Page, PageQuery } from '../../shared/pagination';
+import { fromJoin } from '../../shared/joinRows';
 import { Equipo } from '../../equipos/domain/equipoModels';
 import { Escenario } from '../../escenarios/domain/escenarioModels';
 import {
@@ -53,11 +54,11 @@ export const torneosService = {
   },
 
   async equiposInscritos(torneoId: number): Promise<Equipo[]> {
-    return asArray(await sportsHttpClient.get<Equipo[] | Page<Equipo>>(`/torneos/${torneoId}/equipos`));
+    return fromJoin<Equipo>(asArray(await sportsHttpClient.get<unknown[] | Page<unknown>>(`/torneos/${torneoId}/equipos`)), 'equipo');
   },
 
   async torneosDeEquipo(equipoId: number): Promise<Torneo[]> {
-    return asArray(await sportsHttpClient.get<Torneo[] | Page<Torneo>>(`/equipos/${equipoId}/torneos`));
+    return fromJoin<Torneo>(asArray(await sportsHttpClient.get<unknown[] | Page<unknown>>(`/equipos/${equipoId}/torneos`)), 'torneo');
   },
 
   inscribir(torneoId: number, equipoId: number): Promise<Inscripcion> {
@@ -92,7 +93,11 @@ export const torneosService = {
 
   // Escenario-Torneo
   async escenariosDeTorneo(torneoId: number): Promise<Escenario[]> {
-    return asArray(await sportsHttpClient.get<Escenario[] | Page<Escenario>>(`/torneos/${torneoId}/escenarios`));
+    return fromJoin<Escenario>(
+      asArray(await sportsHttpClient.get<unknown[] | Page<unknown>>(`/torneos/${torneoId}/escenarios`)),
+      'escenario',
+      (r) => ({ direccion: r.escenarioDireccion as string | undefined })
+    );
   },
 
   asignarEscenario(torneoId: number, escenarioId: number): Promise<void> {
@@ -104,6 +109,6 @@ export const torneosService = {
   },
 
   async torneosDeEscenario(escenarioId: number): Promise<Torneo[]> {
-    return asArray(await sportsHttpClient.get<Torneo[] | Page<Torneo>>(`/escenarios/${escenarioId}/torneos`));
+    return fromJoin<Torneo>(asArray(await sportsHttpClient.get<unknown[] | Page<unknown>>(`/escenarios/${escenarioId}/torneos`)), 'torneo');
   },
 };

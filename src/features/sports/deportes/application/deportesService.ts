@@ -1,5 +1,6 @@
 import { sportsHttpClient } from '../../../../core/http/sportsHttpClient';
 import { asArray, buildQuery, Page, SELECT_PAGE_SIZE, FIRST_PAGE } from '../../shared/pagination';
+import { fromJoin } from '../../shared/joinRows';
 import { Deporte } from '../domain/deporteModels';
 import { Equipo } from '../../equipos/domain/equipoModels';
 
@@ -13,7 +14,7 @@ export const deportesService = {
   },
 
   async equiposDeDeporte(deporteId: number): Promise<Equipo[]> {
-    const res = await sportsHttpClient.get<Equipo[] | Page<Equipo>>(`/deportes/${deporteId}/equipos`);
-    return asArray(res);
+    const res = await sportsHttpClient.get<unknown[] | Page<unknown>>(`/deportes/${deporteId}/equipos`);
+    return fromJoin<Equipo>(asArray(res), 'equipo');
   },
 };
