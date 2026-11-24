@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Apuesta, CreateApuestaDto } from '../domain/apuestaModels';
 import { apuestasService } from '../application/apuestasService';
 import { DEFAULT_PAGE_SIZE, FIRST_PAGE } from '../../shared/pagination';
+import { toUserMessage } from '../../shared/errorMessage';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { Pagination } from '../../shared/ui/Pagination';
 import { NuevaApuestaModal } from './NuevaApuestaModal';
 import { Coins, Plus } from 'lucide-react';
@@ -18,15 +20,19 @@ export const ApuestasPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(FIRST_PAGE);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const aficionadoIdFijo = 1;
 
   const fetchApuestas = useCallback(async (targetPage = page) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await apuestasService.getApuestasPage({ page: targetPage, size: DEFAULT_PAGE_SIZE });
       setApuestas(res.content);
       setTotal(res.totalElements);
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -64,6 +70,8 @@ export const ApuestasPage: React.FC = () => {
           <Plus className="w-4 h-4" /> Nueva Apuesta
         </button>
       </div>
+
+      <ErrorBanner message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <div className="text-center py-12 text-slate-400 text-xs">Cargando apuestas...</div>

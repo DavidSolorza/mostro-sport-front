@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Partido, EstadoPartido, CreatePartidoDto, RegistrarAnotacionDto, FinalizarPartidoDto } from '../domain/partidoModels';
 import { partidosService } from '../application/partidosService';
 import { DEFAULT_PAGE_SIZE, FIRST_PAGE } from '../../shared/pagination';
+import { toUserMessage } from '../../shared/errorMessage';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { Pagination } from '../../shared/ui/Pagination';
 import { PartidoCard } from './PartidoCard';
 import { CrearPartidoModal } from './CrearPartidoModal';
@@ -14,6 +16,7 @@ export const PartidosListPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(FIRST_PAGE);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
   const [showCrearModal, setShowCrearModal] = useState<boolean>(false);
   const [selectedAnotar, setSelectedAnotar] = useState<Partido | null>(null);
@@ -21,10 +24,13 @@ export const PartidosListPage: React.FC = () => {
 
   const fetchPartidos = useCallback(async (targetPage = page) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await partidosService.getPartidosPage({ page: targetPage, size: DEFAULT_PAGE_SIZE });
       setPartidos(res.content);
       setTotal(res.totalElements);
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -90,6 +96,8 @@ export const PartidosListPage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      <ErrorBanner message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <div className="text-center py-12 text-slate-400 text-xs">Cargando partidos...</div>
