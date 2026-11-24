@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { desarrolloService } from '../application/desarrolloService';
-import { DesarrolloTorneo } from '../domain/desarrolloModels';
+import { DesarrolloTorneo, PosicionEquipo } from '../domain/desarrolloModels';
 import { TablaPosicionesView } from './TablaPosicionesView';
 import { stubsService } from '../../stubs/application/stubsService';
 import { TorneoOption } from '../../stubs/domain/stubModels';
@@ -12,6 +12,7 @@ export const TorneoDesarrolloPage: React.FC = () => {
   const [torneos, setTorneos] = useState<TorneoOption[]>([]);
   const [selectedTorneoId, setSelectedTorneoId] = useState<number>(0);
   const [data, setData] = useState<DesarrolloTorneo | null>(null);
+  const [posiciones, setPosiciones] = useState<PosicionEquipo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,22 +23,39 @@ export const TorneoDesarrolloPage: React.FC = () => {
         setTorneos(t);
         if (t.length > 0) setSelectedTorneoId(t[0].id_torneo);
       })
-      .catch((err) => setError(toUserMessage(err)));
+      .catch((err) => {
+        setError(toUserMessage(err));
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
-    if (!selectedTorneoId) return;
+    if (!selectedTorneoId) {
+      if (torneos.length === 0) setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
-    desarrolloService
-      .getDesarrolloTorneo(selectedTorneoId)
-      .then((res) => setData(res))
+    Promise.all([
+      desarrolloService.getDesarrolloTorneo(selectedTorneoId),
+      desarrolloService.getTablaPosiciones(selectedTorneoId),
+    ])
+      .then(([res, tabla]) => {
+        setData(res);
+        setPosiciones(tabla);
+      })
       .catch((err) => {
         setData(null);
+        setPosiciones([]);
         setError(toUserMessage(err));
       })
       .finally(() => setLoading(false));
-  }, [selectedTorneoId]);
+  }, [selectedTorneoId, torneos.length]);
+
+  const totalPartidos = (data?.fases ?? []).reduce(
+    (acc, f) => acc + (f.partidosConResultado?.length ?? 0) + (f.partidosPendientes?.length ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -77,15 +95,15 @@ export const TorneoDesarrolloPage: React.FC = () => {
             </div>
             <div className="bg-white p-4 rounded-xl border shadow-sm">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Partidos Programados</span>
-              <p className="text-xl font-extrabold text-indigo-600 mt-1">{data.partidos?.length || 0}</p>
+              <p className="text-xl font-extrabold text-indigo-600 mt-1">{totalPartidos}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border shadow-sm">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Equipos en Clasificación</span>
-              <p className="text-xl font-extrabold text-emerald-600 mt-1">{data.tablaPosiciones?.length || 0}</p>
+              <p className="text-xl font-extrabold text-emerald-600 mt-1">{posiciones.length}</p>
             </div>
           </div>
 
-          <TablaPosicionesView posiciones={data.tablaPosiciones || []} />
+          <TablaPosicionesView posiciones={posiciones} />
         </div>
       ) : (
         <div className="text-center py-12 bg-white rounded-xl border border-dashed text-slate-400 text-xs">

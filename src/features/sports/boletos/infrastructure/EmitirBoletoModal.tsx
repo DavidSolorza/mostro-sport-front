@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { EmitirBoletoDto, Localidad } from '../domain/boletoModels';
 import { boletosService } from '../application/boletosService';
 import { Partido } from '../../partidos/domain/partidoModels';
-import { X, Ticket } from 'lucide-react';
+import { X, Ticket, AlertCircle } from 'lucide-react';
+import { toUserMessage } from '../../shared/errorMessage';
 
 interface Props {
   isOpen: boolean;
@@ -18,25 +19,36 @@ export const EmitirBoletoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
   const [precio, setPrecio] = useState<number>(25);
   const [codigo, setCodigo] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || partidos.length === 0) return;
     const initialP = partidos[0];
     setPartidoId(initialP.id_partido);
     setCodigo(`BOL-${Date.now().toString().slice(-6)}`);
-    boletosService.getLocalidadesPorEscenario(initialP.id_escenario).then((locs) => {
-      setLocalidades(locs);
-      if (locs.length > 0) setLocalidadId(locs[0].id_localidad);
-    });
+    setFormError(null);
+    boletosService
+      .getLocalidadesPorEscenario(initialP.id_escenario)
+      .then((locs) => {
+        setLocalidades(locs);
+        setLocalidadId(locs.length > 0 ? locs[0].id_localidad : 0);
+      })
+      .catch((err) => setFormError(toUserMessage(err)));
   }, [isOpen, partidos]);
 
   const handlePartidoChange = async (id: number) => {
     setPartidoId(id);
     const p = partidos.find((item) => item.id_partido === id);
     if (p) {
-      const locs = await boletosService.getLocalidadesPorEscenario(p.id_escenario);
-      setLocalidades(locs);
-      if (locs.length > 0) setLocalidadId(locs[0].id_localidad);
+      try {
+        const locs = await boletosService.getLocalidadesPorEscenario(p.id_escenario);
+        setLocalidades(locs);
+        setLocalidadId(locs.length > 0 ? locs[0].id_localidad : 0);
+      } catch (err) {
+        setLocalidades([]);
+        setLocalidadId(0);
+        setFormError(toUserMessage(err));
+      }
     }
   };
 
@@ -44,7 +56,12 @@ export const EmitirBoletoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!partidoId || !localidadId) {
+      setFormError('Selecciona un partido y una localidad. Si el escenario no tiene localidades, créalas primero.');
+      return;
+    }
     setLoading(true);
+    setFormError(null);
     try {
       await onSubmit({
         codigo: codigo || `BOL-${Date.now()}`,
@@ -53,7 +70,10 @@ export const EmitirBoletoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
         id_partido: Number(partidoId),
         id_localidad: Number(localidadId),
       });
+      setCodigo(`BOL-${Date.now().toString().slice(-6)}`);
       onClose();
+    } catch (err) {
+      setFormError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -100,6 +120,12 @@ export const EmitirBoletoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, 
               <input type="number" min="0" step="1" value={precio} onChange={(e) => setPrecio(Number(e.target.value))} required className="w-full border rounded-lg p-2" />
             </div>
           </div>
+          {formError && (
+            <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 flex items-start gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button type="submit" disabled={loading} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-50">

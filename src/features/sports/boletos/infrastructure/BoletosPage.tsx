@@ -5,6 +5,8 @@ import { Partido } from '../../partidos/domain/partidoModels';
 import { partidosService } from '../../partidos/application/partidosService';
 import { EmitirBoletoModal } from './EmitirBoletoModal';
 import { Ticket, Plus } from 'lucide-react';
+import { toUserMessage } from '../../shared/errorMessage';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 
 export const BoletosPage: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
@@ -12,20 +14,28 @@ export const BoletosPage: React.FC = () => {
   const [boletos, setBoletos] = useState<Boleto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    partidosService.getPartidos().then((res) => {
-      setPartidos(res);
-      if (res.length > 0) setSelectedPartidoId(res[0].id_partido);
-    });
+    partidosService
+      .getPartidos()
+      .then((res) => {
+        setPartidos(res);
+        if (res.length > 0) setSelectedPartidoId(res[0].id_partido);
+      })
+      .catch((err) => setError(toUserMessage(err)));
   }, []);
 
   const fetchBoletos = async (partidoId: number) => {
     if (!partidoId) return;
     setLoading(true);
+    setError(null);
     try {
       const data = await boletosService.getBoletosPorPartido(partidoId);
       setBoletos(data);
+    } catch (err) {
+      setBoletos([]);
+      setError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -58,6 +68,8 @@ export const BoletosPage: React.FC = () => {
           <Plus className="w-4 h-4" /> Emitir Boleto
         </button>
       </div>
+
+      <ErrorBanner message={error} onClose={() => setError(null)} />
 
       <div className="flex items-center gap-3 bg-white p-3 rounded-xl border shadow-sm">
         <label className="text-xs font-semibold text-slate-700">Filtrar por Partido:</label>

@@ -7,6 +7,7 @@ import { DataTable } from '../../shared/ui/DataTable';
 import { ErrorBanner, SuccessBanner } from '../../shared/ui/ErrorBanner';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StatusBadge } from '../../shared/ui/StatusBadge';
+import { jugadoresService } from '../../jugadores/application/jugadoresService';
 import { equiposService } from '../application/equiposService';
 import { EquipoJugador } from '../domain/equipoModels';
 import { VinculoJugadorModal } from './VinculoJugadorModal';
@@ -30,7 +31,20 @@ export const EquipoPlantillaPanel: React.FC<{ equipoId: number }> = ({ equipoId 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      setRows(await equiposService.jugadoresDeEquipo(equipoId, soloVigentes ? true : undefined));
+      const vinculos = await equiposService.jugadoresDeEquipo(equipoId, soloVigentes ? true : undefined);
+      // El backend puede no incluir la relacion `jugador`: se completa con el nombre real.
+      const faltantes = [...new Set(vinculos.filter((v) => !v.jugador).map((v) => v.jugadorId))];
+      const encontrados = new Map<number, EquipoJugador['jugador']>();
+      await Promise.all(
+        faltantes.map(async (id) => {
+          try {
+            encontrados.set(id, await jugadoresService.obtener(id));
+          } catch {
+            /* si falla, se mantiene el respaldo por id */
+          }
+        })
+      );
+      setRows(vinculos.map((v) => (v.jugador ? v : { ...v, jugador: encontrados.get(v.jugadorId) })));
       setError(null);
     } catch (err) {
       setError(toUserMessage(err));

@@ -52,7 +52,7 @@ export const HabilidadesJugadorPage: React.FC = () => {
   };
 
   const handleEliminar = async (habilidadId: number) => {
-    if (!selectedJugadorId) return;
+    if (!selectedJugadorId || !Number.isFinite(habilidadId) || habilidadId <= 0) return;
     try {
       await habilidadesService.eliminarHabilidad(selectedJugadorId, habilidadId);
       await fetchHabilidades(selectedJugadorId);
@@ -124,6 +124,7 @@ export const HabilidadesJugadorPage: React.FC = () => {
         onClose={() => setShowModal(false)}
         onSubmit={handleAsignar}
         jugadorId={selectedJugadorId}
+        asignadasIds={habilidades.map((h) => h.id_habilidad)}
       />
     </div>
   );
