@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CreatePartidoDto } from '../domain/partidoModels';
 import { stubsService } from '../../stubs/application/stubsService';
+import { torneosService } from '../../torneos/application/torneosService';
+import { toUserMessage } from '../../shared/errorMessage';
 import { TorneoOption, FaseOption, EscenarioOption, EquipoOption, PelotaOption } from '../../stubs/domain/stubModels';
 import { X } from 'lucide-react';
 
@@ -16,7 +18,6 @@ export const CrearPartidoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }
   const [escenarios, setEscenarios] = useState<EscenarioOption[]>([]);
   const [equipos, setEquipos] = useState<EquipoOption[]>([]);
   const [pelotas, setPelotas] = useState<PelotaOption[]>([]);
-
   const [idTorneo, setIdTorneo] = useState<number>(0);
   const [idFase, setIdFase] = useState<number | undefined>(undefined);
   const [idEscenario, setIdEscenario] = useState<number>(0);
@@ -25,41 +26,43 @@ export const CrearPartidoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }
   const [idPelota, setIdPelota] = useState<number | undefined>(undefined);
   const [fechaHora, setFechaHora] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    Promise.all([
-      stubsService.getTorneos(),
-      stubsService.getEscenarios(),
-      stubsService.getEquipos(),
-      stubsService.getPelotas(),
-    ]).then(([t, esc, eq, p]) => {
+    setErrorMsg(null);
+    setIdFase(undefined);
+    Promise.all([stubsService.getTorneos(), stubsService.getEscenarios(), stubsService.getPelotas()]).then(([t, esc, p]) => {
       setTorneos(t);
       setEscenarios(esc);
-      setEquipos(eq);
       setPelotas(p);
-      if (t.length > 0) setIdTorneo(t[0].id_torneo);
-      if (esc.length > 0) setIdEscenario(esc[0].id_escenario);
-      if (eq.length > 1) {
-        setIdLocal(eq[0].id_equipo);
-        setIdVisitante(eq[1].id_equipo);
-      }
+      setIdTorneo(t[0]?.id_torneo ?? 0);
+      setIdEscenario(esc[0]?.id_escenario ?? 0);
     });
   }, [isOpen]);
 
   useEffect(() => {
-    if (!idTorneo) return;
-    stubsService.getFases(idTorneo).then(setFases);
-  }, [idTorneo]);
+    if (!isOpen || !idTorneo) return;
+    setIdFase(undefined);
+    Promise.all([stubsService.getFases(idTorneo), torneosService.equiposInscritos(idTorneo)]).then(([f, ins]) => {
+      setFases(f);
+      const mapeados: EquipoOption[] = (ins as unknown as Array<Record<string, unknown>>).map((i) => ({
+        id_equipo: Number(i.equipoId ?? i.id_equipo ?? i.id ?? 0),
+        nombre: String(i.equipoNombre ?? i.nombre ?? 'Equipo'),
+      }));
+      setEquipos(mapeados);
+      setIdLocal(mapeados[0]?.id_equipo ?? 0);
+      setIdVisitante(mapeados[1]?.id_equipo ?? 0);
+    });
+  }, [isOpen, idTorneo]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (idLocal === idVisitante) {
-      alert('El equipo local y el visitante no pueden ser el mismo.');
-      return;
-    }
+    setErrorMsg(null);
+    if (equipos.length < 2 || !idLocal || !idVisitante) return setErrorMsg('El torneo debe tener al menos 2 equipos inscritos.');
+    if (idLocal === idVisitante) return setErrorMsg('El equipo local y el visitante no pueden ser el mismo.');
     setLoading(true);
     try {
       await onSubmit({
@@ -72,6 +75,8 @@ export const CrearPartidoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }
         id_equipo_visitante: Number(idVisitante),
       });
       onClose();
+    } catch (err) {
+      setErrorMsg(toUserMessage(err));
     } finally {
       setLoading(false);
     }
@@ -85,6 +90,8 @@ export const CrearPartidoModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+          {errorMsg && <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg">{errorMsg}</div>}
+          {equipos.length < 2 && idTorneo > 0 && <div className="p-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg">Este torneo tiene {equipos.length} equipo(s) inscrito(s). Se requieren al menos 2 inscritos.</div>}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Torneo</label>
             <select value={idTorneo} onChange={(e) => setIdTorneo(Number(e.target.value))} className="w-full border rounded-lg p-2">

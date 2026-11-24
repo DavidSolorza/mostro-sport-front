@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { HttpError } from '../../../../core/errors/HttpError';
 import { Partido } from '../../partidos/domain/partidoModels';
 import { ModoPizarra, PizarraEstado } from '../domain/pizarraModels';
 import { deApiAPorcentaje, pizarraService } from '../application/pizarraService';
@@ -12,6 +13,11 @@ export function usePizarraSimulacion(partido: Partido | null) {
   const [velocidad, setVelocidad] = useState(1);
   const [mostrarGol, setMostrarGol] = useState(false);
   const syncTimer = useRef<number | null>(null);
+  const syncBlocked = useRef(false);
+
+  useEffect(() => {
+    syncBlocked.current = false;
+  }, [partido?.id_partido]);
 
   const cargar = async (p: Partido) => {
     setPizarra(pizarraService.generarAlineacionDefault(p));
@@ -60,7 +66,7 @@ export function usePizarraSimulacion(partido: Partido | null) {
 
   // En modo SIMULADOR envía lotes normalizados (0.0..1.0) al backend
   useEffect(() => {
-    if (!partido || !pizarra || modo !== 'SIMULADOR') return;
+    if (!partido || !pizarra || modo !== 'SIMULADOR' || syncBlocked.current) return;
     syncTimer.current = window.setTimeout(async () => {
       try {
         await pizarraService.enviarLotePosiciones(partido.id_partido, [
@@ -68,8 +74,10 @@ export function usePizarraSimulacion(partido: Partido | null) {
           ...pizarra.jugadores.slice(0, 6).map((j) => ({ jugadorId: j.id, x: j.x, y: j.y })),
         ]);
         setPizarra((prev) => (prev ? { ...prev, ultimaSincronizacion: new Date().toLocaleTimeString() } : prev));
-      } catch {
-        /* sin conexión */
+      } catch (err) {
+        if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+          syncBlocked.current = true;
+        }
       }
     }, 3000);
     return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
